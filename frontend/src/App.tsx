@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useCallback, useState } from "react";
 
 import "./App.css";
 import { exportScoredData, fitScorecard, runClustering, runUnivariate } from "./api/client";
@@ -35,13 +35,18 @@ function detectTrend(bins: BinDetail[]): string {
 const DEFAULT_THRESHOLDS: FactorThresholds = { iv: 0.02, gini: 0.1, minValidPct: 50, minBins: 2 };
 
 function App() {
-  const [step, setStep] = useState<Step>("upload");
+  const [step, setStepRaw] = useState<Step>("upload");
+  const setStep = useCallback((s: Step) => {
+    setStepRaw(s);
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  }, []);
   const [dataId, setDataId] = useState<string | null>(null);
   const [targetColumn, setTargetColumn] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [specialValues, setSpecialValues] = useState<number[]>([-999, 9999]);
   const [totalRows, setTotalRows] = useState(0);
+  const [allColumns, setAllColumns] = useState<string[]>([]);
 
   const [univariateData, setUnivariateData] = useState<UnivariateResponse | null>(null);
   const [thresholds, setThresholds] = useState<FactorThresholds>(DEFAULT_THRESHOLDS);
@@ -49,6 +54,8 @@ function App() {
   const [corrThreshold, setCorrThreshold] = useState(0.5);
   const [selectedFactors, setSelectedFactors] = useState<Set<string>>(new Set());
   const [overrideReasons, setOverrideReasons] = useState<Record<string, string>>({});
+  const [binningMethod, setBinningMethod] = useState<"tree" | "equal_frequency">("tree");
+  const [maxBins, setMaxBins] = useState(10);
   const [factorDescriptions, setFactorDescriptions] = useState<Record<string, string>>({});
 
   const [clusterData, setClusterData] = useState<ClusterResponse | null>(null);
@@ -62,6 +69,26 @@ function App() {
   const [scorecardData, setScorecardData] = useState<ScorecardResponse | null>(null);
   const [lastScorecardRequest, setLastScorecardRequest] = useState<Parameters<typeof fitScorecard>[0] | null>(null);
 
+  function handleRerunAnalysis() {
+    if (!dataId) return;
+    setLoading(true);
+    setError(null);
+    runUnivariate({
+      data_id: dataId,
+      target_column: targetColumn!,
+      binning_method: binningMethod,
+      max_bins: maxBins,
+      iv_threshold: 0,
+      special_values: specialValues,
+    })
+      .then((res) => {
+        setUnivariateData(res);
+        applyThresholds(res, totalRows, thresholds);
+      })
+      .catch((err) => setError(err instanceof Error ? err.message : "Analysis failed."))
+      .finally(() => setLoading(false));
+  }
+
   function applyThresholds(data?: UnivariateResponse, rows?: number, t?: FactorThresholds) {
     const d = data ?? univariateData;
     const r = rows ?? totalRows;
@@ -73,20 +100,23 @@ function App() {
     setSelectedFactors(new Set(passing));
   }
 
-  function handleUploaded(data: UploadResponse, target: string, specials: number[], descriptions: Record<string, string>) {
+  function handleUploaded(data: UploadResponse, target: string, specials: number[], descriptions: Record<string, string>, binningMethod: "tree" | "equal_frequency" = "tree", maxBins: number = 10) {
     setDataId(data.data_id);
     setTargetColumn(target);
     setSpecialValues(specials);
     setTotalRows(data.row_count);
+    setAllColumns(data.columns.map((c) => c.name));
     setFactorDescriptions(descriptions);
+    setBinningMethod(binningMethod);
+    setMaxBins(maxBins);
     setLoading(true);
     setError(null);
 
     runUnivariate({
       data_id: data.data_id,
       target_column: target,
-      binning_method: "tree",
-      max_bins: 10,
+      binning_method: binningMethod,
+      max_bins: maxBins,
       iv_threshold: 0,
       special_values: specials,
     })
@@ -250,9 +280,15 @@ function App() {
       <header className="app-header">
         <h1>Scorecard Builder</h1>
         <p>
-          Streamline factor selection for credit risk scorecard development. Upload candidate
-          factors, assess univariate predictive power via GINI and Information Value, cluster
-          correlated factors, and refine binning with interactive WoE adjustments.
+          An interactive tool for developing credit risk scorecards, covering the full model
+          development pipeline from raw data to a production-ready points-based scorecard.
+          Designed for PD (Probability of Default) model development, it can also support
+          LGD and other binary outcome models. The tool handles factor screening with
+          Weight of Evidence and Information Value, correlation-based clustering to remove
+          redundancy, interactive coarse classing with monotonicity enforcement, and
+          logistic regression fitting with PDO scaling. Every decision is logged with
+          mandatory justifications, producing a complete audit trail suitable for model
+          validation and governance review.
         </p>
       </header>
 
@@ -308,6 +344,11 @@ function App() {
             onDescriptionChange={(name, desc) =>
               setFactorDescriptions((prev) => ({ ...prev, [name]: desc }))
             }
+            binningMethod={binningMethod}
+            onBinningMethodChange={setBinningMethod}
+            maxBins={maxBins}
+            onMaxBinsChange={setMaxBins}
+            onRerunAnalysis={handleRerunAnalysis}
           />
         </>
       )}
@@ -517,6 +558,14 @@ function App() {
           clusterOverrides={clusterOverrides}
           factorDescriptions={factorDescriptions}
           scorecardData={scorecardData}
+          specialValues={specialValues}
+          columns={allColumns}
+          config={{
+            binningMethod,
+            maxBins,
+            corrThreshold,
+            maxClusters,
+          }}
           onExportScoredData={lastScorecardRequest ? async () => {
             try {
               const blob = await exportScoredData(lastScorecardRequest);

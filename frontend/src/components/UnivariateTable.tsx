@@ -22,6 +22,11 @@ interface Props {
   proceedDisabled: boolean;
   factorDescriptions: Record<string, string>;
   onDescriptionChange: (name: string, desc: string) => void;
+  binningMethod: "tree" | "equal_frequency";
+  onBinningMethodChange: (m: "tree" | "equal_frequency") => void;
+  maxBins: number;
+  onMaxBinsChange: (v: number) => void;
+  onRerunAnalysis: () => void;
 }
 
 type SortKey = "factor_name" | "iv" | "gini";
@@ -66,6 +71,11 @@ export function UnivariateTable({
   proceedDisabled,
   factorDescriptions,
   onDescriptionChange,
+  binningMethod,
+  onBinningMethodChange,
+  maxBins,
+  onMaxBinsChange,
+  onRerunAnalysis,
 }: Props) {
   const [sortKey, setSortKey] = useState<SortKey>("gini");
   const [sortAsc, setSortAsc] = useState(false);
@@ -236,94 +246,72 @@ export function UnivariateTable({
 
   return (
     <div className="univariate-section">
-      <div className="toolbar threshold-toolbar">
-        <div className="threshold-fields">
-          <div className="threshold-field">
-            <label>IV</label>
-            <input
-              type="number"
-              step={0.01}
-              min={0}
-              value={thresholds.iv}
-              onChange={(e) =>
-                onThresholdsChange({ ...thresholds, iv: parseFloat(e.target.value) || 0 })
-              }
-            />
+      <div className="scorecard-config-panel">
+        <div className="toolbar">
+          <div className="config-row-label">Binning</div>
+          <div className="threshold-fields">
+            <div className="method-toggle">
+              <button className={`method-btn ${binningMethod === "tree" ? "active" : ""}`}
+                onClick={() => { onBinningMethodChange("tree"); }}>Optimal</button>
+              <button className={`method-btn ${binningMethod === "equal_frequency" ? "active" : ""}`}
+                onClick={() => { onBinningMethodChange("equal_frequency"); }}>Equal Freq</button>
+            </div>
+            <div className="threshold-field">
+              <label>Max bins</label>
+              <input type="number" min={2} max={50} value={maxBins}
+                onChange={(e) => onMaxBinsChange(parseInt(e.target.value) || 10)} />
+            </div>
+            <button className="link-button" onClick={onRerunAnalysis}>Re-run</button>
           </div>
-          <div className="threshold-field">
-            <label>GINI</label>
-            <input
-              type="number"
-              step={0.01}
-              min={0}
-              max={1}
-              value={thresholds.gini}
-              onChange={(e) =>
-                onThresholdsChange({ ...thresholds, gini: parseFloat(e.target.value) || 0 })
-              }
-            />
-          </div>
-          <div className="threshold-field">
-            <label>Valid %</label>
-            <input
-              type="number"
-              step={1}
-              min={0}
-              max={100}
-              value={thresholds.minValidPct}
-              onChange={(e) =>
-                onThresholdsChange({ ...thresholds, minValidPct: parseFloat(e.target.value) || 0 })
-              }
-            />
-          </div>
-          <div className="threshold-field">
-            <label>Bins</label>
-            <input
-              type="number"
-              step={1}
-              min={1}
-              value={thresholds.minBins}
-              onChange={(e) =>
-                onThresholdsChange({ ...thresholds, minBins: parseInt(e.target.value) || 1 })
-              }
-            />
-          </div>
-          <button className="link-button" onClick={onApplyThresholds}>Apply</button>
         </div>
-        <div className="threshold-divider" />
-        <div className="selection-actions">
-          <button className="link-button" onClick={onDeselectAll}>Deselect all</button>
-          <span className="selection-count">
-            {passingFactors.length} passing | {selectedFactors.size} selected
-          </span>
-          <div className="threshold-divider" />
-          <div className="threshold-field">
-            <label>Corr</label>
-            <input
-              type="number"
-              step={0.05}
-              min={0}
-              max={1}
-              value={corrThreshold}
-              onChange={(e) => onCorrThresholdChange(parseFloat(e.target.value) || 0)}
-            />
+        <div className="toolbar">
+          <div className="config-row-label">Thresholds</div>
+          <div className="threshold-fields">
+            <div className="threshold-field">
+              <label>IV</label>
+              <input type="number" step={0.01} min={0} value={thresholds.iv}
+                onChange={(e) => onThresholdsChange({ ...thresholds, iv: parseFloat(e.target.value) || 0 })} />
+            </div>
+            <div className="threshold-field">
+              <label>GINI</label>
+              <input type="number" step={0.01} min={0} max={1} value={thresholds.gini}
+                onChange={(e) => onThresholdsChange({ ...thresholds, gini: parseFloat(e.target.value) || 0 })} />
+            </div>
+            <div className="threshold-field">
+              <label>Valid %</label>
+              <input type="number" step={1} min={0} max={100} value={thresholds.minValidPct}
+                onChange={(e) => onThresholdsChange({ ...thresholds, minValidPct: parseFloat(e.target.value) || 0 })} />
+            </div>
+            <div className="threshold-field">
+              <label>Min bins</label>
+              <input type="number" step={1} min={1} value={thresholds.minBins}
+                onChange={(e) => onThresholdsChange({ ...thresholds, minBins: parseInt(e.target.value) || 1 })} />
+            </div>
+            <button className="link-button" onClick={onApplyThresholds}>Apply</button>
+            <div className="threshold-divider" />
+            <button className="link-button" onClick={onDeselectAll}>Deselect all</button>
+            <span className="selection-count">
+              {passingFactors.length} passing | {selectedFactors.size} selected
+            </span>
           </div>
-          <div className="threshold-field">
-            <label>Max clusters</label>
-            <input
-              type="number"
-              min={1}
-              value={maxClusters ?? ""}
-              onChange={(e) => {
-                const v = parseInt(e.target.value);
-                onMaxClustersChange(isNaN(v) ? null : v);
-              }}
-              placeholder="Auto"
-            />
+        </div>
+        <div className="toolbar">
+          <div className="config-row-label">Clustering</div>
+          <div className="threshold-fields">
+            <div className="threshold-field">
+              <label>Corr</label>
+              <input type="number" step={0.05} min={0} max={1} value={corrThreshold}
+                onChange={(e) => onCorrThresholdChange(parseFloat(e.target.value) || 0)} />
+            </div>
+            <div className="threshold-field">
+              <label>Max clusters</label>
+              <input type="number" min={1} value={maxClusters ?? ""} placeholder="Auto"
+                onChange={(e) => { const v = parseInt(e.target.value); onMaxClustersChange(isNaN(v) ? null : v); }} />
+            </div>
+            <button className="primary-button" onClick={onProceed} disabled={proceedDisabled}>
+              Cluster ({selectedFactors.size})
+            </button>
           </div>
-          <button className="primary-button" onClick={onProceed} disabled={proceedDisabled}>
-            Cluster ({selectedFactors.size})
-          </button>
         </div>
       </div>
 

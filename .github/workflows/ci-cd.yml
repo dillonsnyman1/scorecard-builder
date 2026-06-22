@@ -152,3 +152,42 @@ jobs:
       - name: Summary
         run: |
           echo "Deployed: ${{ steps.tf-outputs.outputs.cloudfront_url }}" >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Update README with live demo URL
+        env:
+          CLOUDFRONT_URL: ${{ steps.tf-outputs.outputs.cloudfront_url }}
+        run: |
+          python3 - <<'EOF'
+          import os, re
+
+          url = os.environ["CLOUDFRONT_URL"]
+          domain = url.removeprefix("https://")
+          with open("README.md") as f:
+              content = f.read()
+
+          new_block = (
+              f"> **Live demo**: [{domain}]({url}) - try uploading the "
+              "sample dataset or your own CSV and building a scorecard "
+              "end-to-end.\n"
+              ">\n"
+              "> The backend is fully stateless - uploaded data is held in "
+              "memory for the duration of the session (1-hour TTL) and never "
+              "written to disk, so it's safe for multiple people to use the "
+              "demo at the same time without their data overlapping."
+          )
+          content = re.sub(r"> \*\*Live demo\*\*:.*?(?=\n\n|\Z)", new_block, content, flags=re.S)
+
+          with open("README.md", "w") as f:
+              f.write(content)
+          EOF
+
+      - name: Commit README update
+        run: |
+          if ! git diff --quiet README.md; then
+            git config user.name "github-actions[bot]"
+            git config user.email "github-actions[bot]@users.noreply.github.com"
+            git add README.md
+            git commit -m "Update live demo URL in README"
+            git pull --rebase --autostash origin main
+            git push
+          fi

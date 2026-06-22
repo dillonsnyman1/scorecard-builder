@@ -75,13 +75,41 @@ log_odds = (
     - 0.15 * np.log1p(savings_balance / 10000)
     + 0.8 * loan_to_value
 )
-prob = 1 / (1 + np.exp(-log_odds))
+# ---------------------------------------------------------------------------
+# Dates spanning ~4 years with cyclical economic effect on default rates
+# ---------------------------------------------------------------------------
+months = pd.date_range("2019-01-01", "2023-12-01", freq="MS")
+dates = np.random.choice(months, n)
+
+# Cyclical adjustment simulating an economic cycle:
+# 2019: stable pre-Covid
+# 2020: sharp stress (Covid)
+# 2021: recovery
+# 2022: benign
+# 2023: mild stress (rate hiking cycle)
+cycle_effect = np.zeros(n)
+for i in range(n):
+    y = pd.Timestamp(dates[i]).year
+    m = pd.Timestamp(dates[i]).month
+    if y == 2019:
+        cycle_effect[i] = 0.05
+    elif y == 2020:
+        cycle_effect[i] = 0.3 + 0.2 * (m / 12)
+    elif y == 2021:
+        cycle_effect[i] = 0.15 - 0.15 * (m / 12)
+    elif y == 2022:
+        cycle_effect[i] = -0.1
+    else:
+        cycle_effect[i] = -0.05 + 0.15 * (m / 12)
+
+prob = 1 / (1 + np.exp(-(log_odds + cycle_effect)))
 default_flag = (np.random.uniform(0, 1, n) < prob).astype(int)
 
 # ---------------------------------------------------------------------------
 # Build the DataFrame
 # ---------------------------------------------------------------------------
 data = {}
+data["date"] = pd.to_datetime(dates).strftime("%Y-%m-%d")
 
 # -- Core factors (clean) --
 data["age"] = np.round(age, 1)

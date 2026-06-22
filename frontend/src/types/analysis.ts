@@ -214,6 +214,54 @@ export function passesThresholds(
   return rejectionReasons(f, totalRows, t).length === 0;
 }
 
+export interface StabilityRequest {
+  data_id: string;
+  target_column: string;
+  date_column: string;
+  factors: ExportFactor[];
+  special_values: number[];
+  period: string;
+  bucket_months: number;
+  date_start: string | null;
+  date_end: string | null;
+  base_score: number;
+  base_odds: number;
+  pdo: number;
+  stress_period: string | null;
+  benign_period: string | null;
+}
+
+export interface PeriodMetrics {
+  period: string;
+  obs_count: number;
+  event_count: number;
+  event_rate: number;
+  mean_score: number | null;
+  mean_model_pd: number | null;
+  psi: number | null;
+}
+
+export interface FactorStability {
+  factor_name: string;
+  periods: Array<{ period: string; iv: number; gini: number; obs_count: number }>;
+}
+
+export interface CyclicalityResults {
+  log_regression?: number;
+  two_point?: number;
+  two_point_periods?: string;
+  cv_model_pd?: number;
+}
+
+export interface StabilityResponse {
+  periods: PeriodMetrics[];
+  factor_stability: FactorStability[];
+  overall_psi: number | null;
+  cyclicality: CyclicalityResults;
+  date_min: string | null;
+  date_max: string | null;
+}
+
 export function factorValidPct(f: FactorAnalysis, totalRows: number): number {
   return validPct(f, totalRows);
 }

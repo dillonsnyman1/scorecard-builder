@@ -6,6 +6,8 @@ import type {
   RefineBinsResponse,
   ScorecardRequest,
   ScorecardResponse,
+  StabilityRequest,
+  StabilityResponse,
   UnivariateRequest,
   UnivariateResponse,
   UploadResponse,
@@ -100,6 +102,21 @@ export async function fitScorecard(req: ScorecardRequest): Promise<ScorecardResp
   if (!res.ok) {
     const body = await res.json().catch(() => null);
     throw new Error(body?.detail ?? `Scorecard fitting failed (${res.status})`);
+  }
+
+  return res.json();
+}
+
+export async function runStabilityAnalysis(req: StabilityRequest): Promise<StabilityResponse> {
+  const res = await fetch(`${API_BASE}/api/stability`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(req),
+  });
+
+  if (!res.ok) {
+    const body = await res.json().catch(() => null);
+    throw new Error(body?.detail ?? `Stability analysis failed (${res.status})`);
   }
 
   return res.json();

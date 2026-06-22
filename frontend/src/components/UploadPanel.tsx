@@ -3,7 +3,7 @@ import { uploadCsv, sampleCsvUrl, sampleMetadataUrl } from "../api/client";
 import type { ColumnProfile, UploadResponse } from "../types/analysis";
 
 interface Props {
-  onUploaded: (data: UploadResponse, targetColumn: string, specialValues: number[], descriptions: Record<string, string>) => void;
+  onUploaded: (data: UploadResponse, targetColumn: string, specialValues: number[], descriptions: Record<string, string>, binningMethod: "tree" | "equal_frequency", maxBins: number) => void;
 }
 
 const TARGET_HINTS = [
@@ -36,6 +36,8 @@ export function UploadPanel({ onUploaded }: Props) {
   const [specialValues, setSpecialValues] = useState<number[]>([-999, 9999]);
   const [svInput, setSvInput] = useState("");
   const [descriptions, setDescriptions] = useState<Record<string, string>>({});
+  const [binningMethod, setBinningMethod] = useState<"tree" | "equal_frequency">("tree");
+  const [maxBins, setMaxBins] = useState(10);
 
   async function handleFileChange(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
@@ -103,7 +105,7 @@ export function UploadPanel({ onUploaded }: Props) {
 
   function handleProceed() {
     if (uploadData && targetColumn) {
-      onUploaded(uploadData, targetColumn, specialValues, descriptions);
+      onUploaded(uploadData, targetColumn, specialValues, descriptions, binningMethod, maxBins);
     }
   }
 
@@ -232,6 +234,22 @@ export function UploadPanel({ onUploaded }: Props) {
                   placeholder="Add value..."
                 />
               </div>
+            </div>
+            <div className="config-field">
+              <label>Binning:</label>
+              <div className="method-toggle">
+                <button className={`method-btn ${binningMethod === "tree" ? "active" : ""}`}
+                  onClick={() => setBinningMethod("tree")}>Optimal (Tree)</button>
+                <button className={`method-btn ${binningMethod === "equal_frequency" ? "active" : ""}`}
+                  onClick={() => setBinningMethod("equal_frequency")}>Equal Frequency</button>
+              </div>
+            </div>
+            <div className="config-field">
+              <label>Max bins:</label>
+              <input type="number" min={2} max={50} value={maxBins}
+                onChange={(e) => setMaxBins(parseInt(e.target.value) || 10)}
+                style={{ width: 60, padding: "6px 8px", borderRadius: 6, border: "1px solid var(--border)", fontSize: 14 }}
+              />
             </div>
             <button
               className="primary-button"

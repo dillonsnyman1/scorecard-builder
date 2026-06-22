@@ -234,3 +234,48 @@ class ScorecardResponse(BaseModel):
     stepwise_log: list[StepwiseStep] = []
     dropped_factors: list[str] = []
     negative_coefficients: list[str] = []
+
+
+# ---------------------------------------------------------------------------
+# Stability / cyclicality analysis
+# ---------------------------------------------------------------------------
+
+class StabilityRequest(BaseModel):
+    data_id: str
+    target_column: str
+    date_column: str
+    factors: list[ExportFactor]
+    special_values: list[float] = Field(default_factory=lambda: [-999.0, 9999.0])
+    period: str = Field(default="quarter")
+    bucket_months: int = Field(default=3, ge=1, le=60)
+    date_start: str | None = None
+    date_end: str | None = None
+    base_score: float = Field(default=600.0)
+    base_odds: float = Field(default=50.0)
+    pdo: int = Field(default=20)
+    stress_period: str | None = None
+    benign_period: str | None = None
+
+
+class PeriodMetrics(BaseModel):
+    period: str
+    obs_count: int
+    event_count: int
+    event_rate: float
+    mean_score: float | None = None
+    mean_model_pd: float | None = None
+    psi: float | None = None
+
+
+class FactorStability(BaseModel):
+    factor_name: str
+    periods: list[dict]
+
+
+class StabilityResponse(BaseModel):
+    periods: list[PeriodMetrics]
+    factor_stability: list[FactorStability]
+    overall_psi: float | None = None
+    cyclicality: dict = {}
+    date_min: str | None = None
+    date_max: str | None = None

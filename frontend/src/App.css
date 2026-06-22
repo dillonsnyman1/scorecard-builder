@@ -1388,6 +1388,39 @@ tr.audit-override {
   flex-wrap: wrap;
 }
 
+.config-summary-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 20px;
+}
+
+.config-summary-section h4 {
+  margin: 0 0 8px;
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--text-h);
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+
+.config-summary-section dl {
+  margin: 0;
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 4px 12px;
+  font-size: 13px;
+}
+
+.config-summary-section dt {
+  color: var(--text);
+}
+
+.config-summary-section dd {
+  margin: 0;
+  font-weight: 600;
+  color: var(--text-h);
+}
+
 .next-steps-card {
   background: var(--accent-soft);
   border: 1px solid var(--accent);

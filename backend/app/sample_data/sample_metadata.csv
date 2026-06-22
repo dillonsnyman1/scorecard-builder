@@ -1,4 +1,5 @@
 factor_name,description
+date,"Observation date (YYYY-MM-DD), spanning 2019-2023"
 age,Applicant age at time of application (years)
 loan_amount,Requested loan amount
 interest_rate,Contracted annual interest rate (%)

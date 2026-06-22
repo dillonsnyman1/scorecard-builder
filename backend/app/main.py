@@ -26,6 +26,8 @@ from app.models import (
     RefineBinsResponse,
     ScorecardRequest,
     ScorecardResponse,
+    StabilityRequest,
+    StabilityResponse,
     UnivariateRequest,
     UnivariateResponse,
     UploadResponse,
@@ -336,6 +338,62 @@ def export_scored_data(req: ScorecardRequest) -> StreamingResponse:
         media_type="text/csv",
         headers={"Content-Disposition": "attachment; filename=scored_data.csv"},
     )
+
+
+@app.post("/api/stability", response_model=StabilityResponse)
+def stability_analysis(req: StabilityRequest) -> StabilityResponse:
+    df = _get_dataframe(req.data_id)
+
+    if req.date_column not in df.columns:
+        raise HTTPException(status_code=422, detail=f"Date column '{req.date_column}' not found.")
+
+    scores = None
+    model_pds = None
+    if len(req.factors) > 0:
+        from app.scorecard_engine import woe_transform_dataset, fit_logistic_regression
+        from sklearn.linear_model import LogisticRegression
+        import math as _math
+
+        factors_list = [{"factor_name": f.factor_name, "bin_edges": f.bin_edges} for f in req.factors]
+        all_names = [f.factor_name for f in req.factors]
+        target = df[req.target_column].values.astype(float)
+        valid_mask = ~np.isnan(target)
+
+        woe_df, target_clean, _ = woe_transform_dataset(df, req.target_column, factors_list, req.special_values)
+        woe_matrix = woe_df.loc[valid_mask, all_names].values
+        coefficients, intercept, _ = fit_logistic_regression(woe_matrix, target_clean, all_names)
+
+        lr = LogisticRegression(C=np.inf, solver="lbfgs", max_iter=1000, random_state=42)
+        lr.fit(woe_matrix, target_clean)
+        all_model_pds = np.full(len(df), np.nan)
+        all_model_pds[valid_mask] = lr.predict_proba(woe_matrix)[:, 1]
+        model_pds = all_model_pds
+
+        n = len(all_names)
+        sf = req.pdo / _math.log(2)
+        so = req.base_score - sf * _math.log(req.base_odds)
+        intercept_share = intercept / n
+
+        all_scores = np.full(len(df), np.nan)
+        score_vals = np.zeros(int(valid_mask.sum()))
+        for i, name in enumerate(all_names):
+            coef = float(coefficients[i])
+            woe_vals = woe_df.loc[valid_mask, name].values
+            raw = coef * woe_vals + intercept_share
+            score_vals += -raw * sf + so / n
+        all_scores[valid_mask] = score_vals
+        scores = all_scores
+
+    from app.stability_engine import run_stability_analysis
+    result = run_stability_analysis(
+        df, req.target_column, req.date_column,
+        [{"factor_name": f.factor_name, "bin_edges": f.bin_edges} for f in req.factors],
+        req.special_values, req.period, scores, model_pds,
+        req.stress_period, req.benign_period,
+        req.bucket_months, req.date_start, req.date_end,
+    )
+
+    return StabilityResponse(**result)
 
 
 @app.get("/api/sample-csv")
