@@ -508,7 +508,7 @@ backend tests and frontend build on every push/PR, then - if those pass
 the frontend to S3/CloudFront. The deploy job runs automatically on
 every push to `main`, or on demand via the Actions tab.
 
-> **Live demo**: [pending first deploy](https://example.com) - try uploading the sample dataset or your own CSV and building a scorecard end-to-end.
+> **Live demo**: [d1kpl55ytl00tk.cloudfront.net](https://d1kpl55ytl00tk.cloudfront.net) - try uploading the sample dataset or your own CSV and building a scorecard end-to-end.
 >
 > The backend is fully stateless - uploaded data is held in memory for the duration of the session (1-hour TTL) and never written to disk, so it's safe for multiple people to use the demo at the same time without their data overlapping.
 
