@@ -1,0 +1,106 @@
+factor_name,description
+age,Applicant age at time of application (years)
+loan_amount,Requested loan amount
+interest_rate,Contracted annual interest rate (%)
+loan_to_value,Loan-to-value ratio at origination
+income,Gross annual income declared by applicant
+debt_to_income,Total debt payments as proportion of gross income
+months_employed,Months in current employment at application date
+credit_utilisation,Proportion of total revolving credit limit currently used (0-1)
+num_credit_lines,Number of open credit lines on bureau
+delinquency_count,Number of delinquent accounts in last 24 months
+revolving_balance,Outstanding revolving credit balance
+total_accounts,Total number of credit accounts (open and closed)
+open_accounts,Number of currently open accounts
+max_delinquency_ever,"Worst delinquency status ever recorded (0=none, 5=worst)"
+months_since_oldest_account,Age of oldest account on bureau (months)
+inquiries_last_6m,Number of credit inquiries in last 6 months
+payment_to_income,Monthly payment obligation as proportion of income
+total_debt,Total outstanding debt across all accounts
+savings_balance,Balance in savings/deposit accounts
+months_since_last_delinq,Months since most recent delinquency event
+income_log,Natural logarithm of gross annual income
+income_scaled,Gross annual income divided by 1000
+income_with_noise,Income with random measurement noise applied
+debt_ratio_v2,Alternative calculation of debt-to-income ratio
+employment_years,Employment tenure in years (months_employed / 12)
+utilisation_pct,Credit utilisation expressed as percentage (0-100)
+revolving_to_income,Revolving balance as proportion of annual income
+delinq_flag,"Binary flag: 1 if any delinquency in last 24 months, 0 otherwise"
+high_utilisation_flag,Binary flag: 1 if credit utilisation exceeds 70%
+loan_amount_log,Natural logarithm of loan amount
+total_debt_log,Natural logarithm of (1 + total debt)
+savings_log,Natural logarithm of (1 + savings balance)
+account_age_years,Age of oldest account in years
+debt_service_ratio,Annual debt service cost as proportion of income
+income_per_account,Average income per credit account
+balance_per_line,Average revolving balance per credit line
+utilisation_x_delinq,Interaction: credit utilisation multiplied by delinquency count
+ltv_x_rate,Interaction: loan-to-value multiplied by interest rate
+age_x_income,Interaction: age multiplied by income (scaled)
+open_to_total_ratio,Proportion of total accounts that are currently open
+inquiries_per_account,Inquiries per credit account (inquiry intensity)
+bureau_score,Internal bureau-derived risk score
+bureau_score_v2,Bureau risk score (alternative model version)
+external_score_1,External bureau risk score (provider 1)
+external_score_2,External bureau risk score (provider 2)
+external_score_3,External bureau risk score (provider 3)
+months_since_default,Months since last recorded default (-999 if never defaulted)
+previous_applications,Number of previous credit applications on file
+worst_status_12m,"Worst payment status in last 12 months (0=current, 4=worst)"
+worst_status_ever,Worst payment status ever recorded
+time_since_last_inquiry,Months since last credit inquiry (9999 if no inquiries)
+avg_balance_6m,Average account balance over last 6 months
+avg_balance_12m,Average account balance over last 12 months
+max_overdue_amount,Maximum overdue amount ever recorded
+months_since_worst_delinq,Months since worst delinquency event
+months_since_last_payment,Months since last payment received
+internal_rating_score,Internal credit rating score
+bureau_num_trades,Number of trade lines on bureau
+bureau_num_delinq_trades,Number of delinquent trade lines on bureau
+bureau_total_balance,Total balance across all bureau trade lines
+bureau_max_utilisation,Maximum utilisation across all revolving accounts
+time_on_bureau,Months since first record on credit bureau
+bureau_payment_history_score,"Bureau payment history score (0-100, higher=better)"
+property_value,Estimated value of property used as collateral
+property_age_years,Age of the property in years
+rental_income,Monthly rental income from property (if applicable)
+property_sqm,Property size in square metres
+dependants,Number of declared financial dependants
+years_in_current_job,Years in current job position
+months_at_address,Months at current residential address
+employer_tenure_months,Tenure with current employer in months
+other_loan_payments,Monthly payments on other loan obligations
+prev_loan_amount,Loan amount of most recent previous loan
+net_monthly_income,Net monthly income after tax and deductions
+noise_uniform_1,Random uniform noise variable 1 (control/benchmark)
+noise_uniform_2,Random uniform noise variable 2 (control/benchmark)
+noise_uniform_3,Random uniform noise variable 3 (control/benchmark)
+noise_uniform_4,Random uniform noise variable 4 (control/benchmark)
+noise_uniform_5,Random uniform noise variable 5 (control/benchmark)
+noise_uniform_6,Random uniform noise variable 6 (control/benchmark)
+noise_uniform_7,Random uniform noise variable 7 (control/benchmark)
+noise_uniform_8,Random uniform noise variable 8 (control/benchmark)
+noise_uniform_9,Random uniform noise variable 9 (control/benchmark)
+noise_uniform_10,Random uniform noise variable 10 (control/benchmark)
+noise_uniform_11,Random uniform noise variable 11 (control/benchmark)
+noise_uniform_12,Random uniform noise variable 12 (control/benchmark)
+noise_uniform_13,Random uniform noise variable 13 (control/benchmark)
+noise_uniform_14,Random uniform noise variable 14 (control/benchmark)
+noise_uniform_15,Random uniform noise variable 15 (control/benchmark)
+noise_normal_1,Random normal noise variable 1 (control/benchmark)
+noise_normal_2,Random normal noise variable 2 (control/benchmark)
+noise_normal_3,Random normal noise variable 3 (control/benchmark)
+noise_normal_4,Random normal noise variable 4 (control/benchmark)
+noise_normal_5,Random normal noise variable 5 (control/benchmark)
+noise_normal_6,Random normal noise variable 6 (control/benchmark)
+noise_normal_7,Random normal noise variable 7 (control/benchmark)
+noise_integer_1,Random integer noise variable 1 (control/benchmark)
+noise_integer_2,Random integer noise variable 2 (control/benchmark)
+noise_integer_3,Random integer noise variable 3 (control/benchmark)
+region,Geographic region of applicant
+employment_type,"Employment classification (salaried, self-employed, etc.)"
+loan_purpose,Purpose of the loan application
+property_type,"Type of property (house, flat, townhouse, etc.)"
+education_level,Highest education level attained
+marital_status,Marital status of applicant

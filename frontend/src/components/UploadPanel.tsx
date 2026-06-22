@@ -1,0 +1,328 @@
+import { useRef, useState } from "react";
+import { uploadCsv, sampleCsvUrl, sampleMetadataUrl } from "../api/client";
+import type { ColumnProfile, UploadResponse } from "../types/analysis";
+
+interface Props {
+  onUploaded: (data: UploadResponse, targetColumn: string, specialValues: number[], descriptions: Record<string, string>) => void;
+}
+
+const TARGET_HINTS = [
+  "default", "target", "flag", "label", "bad", "good_bad", "default_flag",
+  "is_default", "y", "outcome", "event", "status", "dpd", "delinquent",
+];
+
+function detectTarget(cols: ColumnProfile[]): string {
+  const candidates = cols.filter((c) => c.dtype === "numeric" && c.unique_count === 2);
+  if (candidates.length === 0) {
+    const relaxed = cols.filter((c) => c.dtype === "numeric" && c.unique_count <= 5);
+    if (relaxed.length > 0) return relaxed[0].name;
+    return "";
+  }
+  for (const hint of TARGET_HINTS) {
+    const match = candidates.find((c) => c.name.toLowerCase().includes(hint));
+    if (match) return match.name;
+  }
+  return candidates[candidates.length - 1].name;
+}
+
+export function UploadPanel({ onUploaded }: Props) {
+  const fileRef = useRef<HTMLInputElement>(null);
+  const [columns, setColumns] = useState<ColumnProfile[]>([]);
+  const [targetColumn, setTargetColumn] = useState("");
+  const [uploadData, setUploadData] = useState<UploadResponse | null>(null);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [fileName, setFileName] = useState<string | null>(null);
+  const [specialValues, setSpecialValues] = useState<number[]>([-999, 9999]);
+  const [svInput, setSvInput] = useState("");
+  const [descriptions, setDescriptions] = useState<Record<string, string>>({});
+
+  async function handleFileChange(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    setLoading(true);
+    setError(null);
+    setFileName(file.name);
+
+    try {
+      const data = await uploadCsv(file);
+      setUploadData(data);
+      setColumns(data.columns);
+      const detected = detectTarget(data.columns);
+      setTargetColumn(detected);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Upload failed.");
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  function handleAddSv() {
+    const val = Number(svInput.trim());
+    if (!isNaN(val) && svInput.trim() !== "" && !specialValues.includes(val)) {
+      setSpecialValues([...specialValues, val]);
+    }
+    setSvInput("");
+  }
+
+  function handleRemoveSv(val: number) {
+    setSpecialValues(specialValues.filter((v) => v !== val));
+  }
+
+  function handleSvKeyDown(e: React.KeyboardEvent) {
+    if (e.key === "Enter") {
+      e.preventDefault();
+      handleAddSv();
+    }
+  }
+
+  function handleMetadataUpload(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = (evt) => {
+      const text = evt.target?.result as string;
+      const lines = text.split("\n").map((l) => l.trim()).filter(Boolean);
+      if (lines.length < 2) return;
+      const header = lines[0].split(",").map((h) => h.trim().replace(/^"|"$/g, "").toLowerCase());
+      const nameIdx = header.findIndex((h) => h === "factor_name" || h === "factor" || h === "name" || h === "variable");
+      const descIdx = header.findIndex((h) => h === "description" || h === "desc" || h === "label");
+      if (nameIdx === -1 || descIdx === -1) return;
+      const parsed: Record<string, string> = {};
+      for (const line of lines.slice(1)) {
+        const cols = line.split(",").map((c) => c.trim().replace(/^"|"$/g, ""));
+        if (cols[nameIdx] && cols[descIdx]) {
+          parsed[cols[nameIdx]] = cols[descIdx];
+        }
+      }
+      setDescriptions((prev) => ({ ...prev, ...parsed }));
+    };
+    reader.readAsText(file);
+  }
+
+  function handleProceed() {
+    if (uploadData && targetColumn) {
+      onUploaded(uploadData, targetColumn, specialValues, descriptions);
+    }
+  }
+
+  const binaryColumns = columns.filter(
+    (c) => c.dtype === "numeric" && c.unique_count <= 10,
+  );
+
+  const [showTargetPicker, setShowTargetPicker] = useState(false);
+
+  const columnsWithSpecials = columns.filter(
+    (c) => Object.keys(c.special_value_counts).length > 0,
+  );
+  const columnsWithMissing = columns.filter((c) => c.missing_count > 0);
+
+  return (
+    <div className="upload-panel">
+      <div className="upload-section">
+        <h3>Upload Dataset</h3>
+        <p>Upload a CSV file containing your candidate factors and binary target variable.</p>
+
+        <div className="upload-actions">
+          <label className="upload-button">
+            Choose CSV File
+            <input
+              ref={fileRef}
+              type="file"
+              accept=".csv"
+              onChange={handleFileChange}
+              hidden
+            />
+          </label>
+          <label className="link-button">
+            {Object.keys(descriptions).length > 0
+              ? `Metadata: ${Object.keys(descriptions).length} descriptions`
+              : "Upload Metadata CSV"}
+            <input type="file" accept=".csv" onChange={handleMetadataUpload} hidden />
+          </label>
+          <a className="link-button" href={sampleCsvUrl()} download>
+            Sample data
+          </a>
+          <a className="link-button" href={sampleMetadataUrl()} download>
+            Sample metadata
+          </a>
+        </div>
+
+        {fileName && <p className="file-name">File: {fileName}</p>}
+        {loading && <div className="status-message">Uploading and profiling data...</div>}
+        {error && <div className="status-message error">{error}</div>}
+      </div>
+
+      {uploadData && !loading && (
+        <>
+          <div className="summary-cards">
+            <div className="summary-card">
+              <div className="summary-label">Rows</div>
+              <div className="summary-value">{uploadData.row_count.toLocaleString()}</div>
+            </div>
+            <div className="summary-card">
+              <div className="summary-label">Columns</div>
+              <div className="summary-value">{uploadData.column_count}</div>
+            </div>
+            <div className="summary-card">
+              <div className="summary-label">With Missing</div>
+              <div className="summary-value">{columnsWithMissing.length}</div>
+            </div>
+            <div className="summary-card">
+              <div className="summary-label">With Specials</div>
+              <div className="summary-value">{columnsWithSpecials.length}</div>
+            </div>
+          </div>
+
+          <div className="toolbar">
+            <div className="config-field">
+              <label>Target variable:</label>
+              {!showTargetPicker ? (
+                <div className="target-detected">
+                  {targetColumn ? (
+                    <>
+                      <span className="target-name">{targetColumn}</span>
+                      <button className="link-button" onClick={() => setShowTargetPicker(true)}>
+                        Change
+                      </button>
+                    </>
+                  ) : (
+                    <>
+                      <span className="target-none">Not detected</span>
+                      <button className="link-button" onClick={() => setShowTargetPicker(true)}>
+                        Select
+                      </button>
+                    </>
+                  )}
+                </div>
+              ) : (
+                <div className="target-picker">
+                  {binaryColumns.map((c) => (
+                    <label key={c.name} className={`target-option ${targetColumn === c.name ? "selected" : ""}`}>
+                      <input
+                        type="radio"
+                        name="target"
+                        checked={targetColumn === c.name}
+                        onChange={() => { setTargetColumn(c.name); setShowTargetPicker(false); }}
+                      />
+                      {c.name}
+                      <span className="target-option-meta">{c.unique_count} unique</span>
+                    </label>
+                  ))}
+                </div>
+              )}
+            </div>
+            <div className="config-field">
+              <label>Special values:</label>
+              <div className="sv-chips">
+                {specialValues.map((v) => (
+                  <span key={v} className="sv-chip">
+                    {v}
+                    <button className="sv-chip-remove" onClick={() => handleRemoveSv(v)}>x</button>
+                  </span>
+                ))}
+                <input
+                  className="sv-chip-input"
+                  type="number"
+                  step="any"
+                  value={svInput}
+                  onChange={(e) => setSvInput(e.target.value)}
+                  onKeyDown={handleSvKeyDown}
+                  placeholder="Add value..."
+                />
+              </div>
+            </div>
+            <button
+              className="primary-button"
+              onClick={handleProceed}
+              disabled={!targetColumn}
+            >
+              Run Univariate Analysis
+            </button>
+          </div>
+
+          <details className="collapsible-section">
+            <summary>
+              Column Profiles ({columns.length} columns)
+            </summary>
+            <div className="table-wrapper">
+              <table className="data-table">
+                <thead>
+                  <tr>
+                    <th>Column</th>
+                    <th>Type</th>
+                    <th>Missing %</th>
+                    <th>SV %</th>
+                    <th>Valid %</th>
+                    <th>Unique</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {columns.map((c) => {
+                    const specialTotal = Object.values(c.special_value_counts).reduce(
+                      (a, b) => a + b,
+                      0,
+                    );
+                    const svPct = uploadData.row_count > 0
+                      ? (specialTotal / uploadData.row_count) * 100
+                      : 0;
+                    const validPct = uploadData.row_count > 0
+                      ? ((uploadData.row_count - c.missing_count - specialTotal) / uploadData.row_count) * 100
+                      : 0;
+                    return (
+                      <tr key={c.name}>
+                        <td>{c.name}</td>
+                        <td>{c.dtype}</td>
+                        <td className="mono">{c.missing_count > 0 ? `${c.missing_pct.toFixed(1)}%` : "-"}</td>
+                        <td className="mono">{specialTotal > 0 ? `${svPct.toFixed(1)}%` : "-"}</td>
+                        <td className="mono">{validPct < 100 ? `${validPct.toFixed(1)}%` : "100%"}</td>
+                        <td>{c.unique_count}</td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          </details>
+
+          <details className="collapsible-section">
+            <summary>
+              Detected Special Values ({columnsWithSpecials.length} columns)
+            </summary>
+            {columnsWithSpecials.length > 0 ? (
+              <div className="table-wrapper">
+                <table className="data-table compact">
+                  <thead>
+                    <tr>
+                      <th>Column</th>
+                      <th>Special Value</th>
+                      <th>Count</th>
+                      <th>% of Rows</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {columnsWithSpecials.map((c) =>
+                      Object.entries(c.special_value_counts).map(([val, count]) => (
+                        <tr key={`${c.name}-${val}`}>
+                          <td>{c.name}</td>
+                          <td className="mono">{val}</td>
+                          <td>{count.toLocaleString()}</td>
+                          <td className="mono">
+                            {((count / uploadData.row_count) * 100).toFixed(1)}%
+                          </td>
+                        </tr>
+                      )),
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            ) : (
+              <p className="chart-note">No special values detected in the dataset.</p>
+            )}
+          </details>
+        </>
+      )}
+    </div>
+  );
+}
