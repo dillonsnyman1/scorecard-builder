@@ -399,11 +399,11 @@ export async function exportFullReport(data: ReportData) {
       const cycRows: [string, number, string][] = [];
       if (c.log_regression !== undefined) {
         cycRows.push(["Log-log regression", c.log_regression,
-          Math.abs(c.log_regression) > 0.8 ? "Highly PIT" : Math.abs(c.log_regression) > 0.5 ? "Moderately cyclical" : Math.abs(c.log_regression) > 0.2 ? "Low cyclicality" : "Near TTC"]);
+          Math.abs(c.log_regression) > 0.8 ? "Predominantly PIT" : Math.abs(c.log_regression) > 0.3 ? "Hybrid" : Math.abs(c.log_regression) > 0.1 ? "Largely TTC" : "Near TTC"]);
       }
       if (c.two_point !== undefined) {
         cycRows.push([`Two-point${c.two_point_periods ? ` (${c.two_point_periods})` : ""}`, c.two_point,
-          Math.abs(c.two_point) > 1 ? "Amplifies cycle" : Math.abs(c.two_point) > 0.5 ? "Passes through" : "Dampens cycle"]);
+          Math.abs(c.two_point) > 1 ? "Amplifies cycle" : Math.abs(c.two_point) > 0.3 ? "Partially PIT" : "Within PRA expectation"]);
       }
       if (c.cv_model_pd !== undefined) {
         cycRows.push(["CV of model PD", c.cv_model_pd,

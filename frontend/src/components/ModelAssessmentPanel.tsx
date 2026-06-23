@@ -377,14 +377,13 @@ export function ModelAssessmentPanel({
                       <tr><th>Method</th><th>Value</th><th>Interpretation</th></tr>
                     </thead>
                     <tbody>
-                      <tr><td rowSpan={4}>Log-log regression</td><td className="mono">|beta| &gt; 0.8</td><td>Highly PIT</td></tr>
-                      <tr><td className="mono">|beta| &gt; 0.5</td><td>Moderately cyclical</td></tr>
-                      <tr><td className="mono">|beta| &gt; 0.2</td><td>Low cyclicality</td></tr>
-                      <tr><td className="mono">|beta| &le; 0.2</td><td>Near TTC</td></tr>
-                      <tr><td rowSpan={4}>Two-point</td><td className="mono">|val| &gt; 1</td><td>Amplifies cycle</td></tr>
-                      <tr><td className="mono">|val| &gt; 0.5</td><td>Passes through cycle</td></tr>
-                      <tr><td className="mono">|val| &gt; 0</td><td>Dampens cycle</td></tr>
-                      <tr><td className="mono">|val| = 0</td><td>No sensitivity</td></tr>
+                      <tr><td rowSpan={3}>Log-log regression</td><td className="mono">|beta| ~ 1</td><td>Fully PIT (elasticity ~ 1)</td></tr>
+                      <tr><td className="mono">0 &lt; |beta| &lt; 1</td><td>Hybrid (partially cyclical)</td></tr>
+                      <tr><td className="mono">|beta| ~ 0</td><td>Near TTC (no cycle sensitivity)</td></tr>
+                      <tr><td rowSpan={4}>Two-point (PRA c)</td><td className="mono">|c| &gt; 1</td><td>Amplifies cycle</td></tr>
+                      <tr><td className="mono">0.3 &lt; |c| &le; 1</td><td>Partially PIT</td></tr>
+                      <tr><td className="mono">|c| &le; 0.3</td><td>Within PRA expectation (SS11/13)</td></tr>
+                      <tr><td className="mono">|c| = 0</td><td>No sensitivity (TTC)</td></tr>
                       <tr><td rowSpan={3}>CV of model PD</td><td className="mono">val &gt; 0.3</td><td>High dispersion</td></tr>
                       <tr><td className="mono">val &gt; 0.15</td><td>Moderate</td></tr>
                       <tr><td className="mono">val &le; 0.15</td><td>Low dispersion</td></tr>
@@ -472,9 +471,9 @@ export function ModelAssessmentPanel({
                           <tr>
                             <td>Log-log regression</td>
                             <td className="mono">{stabilityData.cyclicality.log_regression.toFixed(4)}</td>
-                            <td>{Math.abs(stabilityData.cyclicality.log_regression) > 0.8 ? "Highly PIT" :
-                              Math.abs(stabilityData.cyclicality.log_regression) > 0.5 ? "Moderately cyclical" :
-                              Math.abs(stabilityData.cyclicality.log_regression) > 0.2 ? "Low cyclicality" : "Near TTC"}</td>
+                            <td>{Math.abs(stabilityData.cyclicality.log_regression) > 0.8 ? "Predominantly PIT" :
+                              Math.abs(stabilityData.cyclicality.log_regression) > 0.3 ? "Hybrid" :
+                              Math.abs(stabilityData.cyclicality.log_regression) > 0.1 ? "Largely TTC" : "Near TTC"}</td>
                           </tr>
                         )}
                         {stabilityData.cyclicality.two_point !== undefined && (
@@ -482,8 +481,8 @@ export function ModelAssessmentPanel({
                             <td>Two-point{stabilityData.cyclicality.two_point_periods ? ` (${stabilityData.cyclicality.two_point_periods})` : ""}</td>
                             <td className="mono">{stabilityData.cyclicality.two_point.toFixed(4)}</td>
                             <td>{Math.abs(stabilityData.cyclicality.two_point) > 1 ? "Amplifies cycle" :
-                              Math.abs(stabilityData.cyclicality.two_point) > 0.5 ? "Passes through" :
-                              Math.abs(stabilityData.cyclicality.two_point) > 0 ? "Dampens cycle" : "No sensitivity"}</td>
+                              Math.abs(stabilityData.cyclicality.two_point) > 0.3 ? "Partially PIT" :
+                              Math.abs(stabilityData.cyclicality.two_point) > 0 ? "Within PRA expectation" : "No sensitivity"}</td>
                           </tr>
                         )}
                         {stabilityData.cyclicality.cv_model_pd !== undefined && (

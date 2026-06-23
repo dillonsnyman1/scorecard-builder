@@ -305,12 +305,14 @@ measures are implemented:
    ln(mean_model_PD_t) = alpha + beta * ln(ODR_t) + epsilon
    ```
 
-   The slope `beta` is the cyclicality index. `|beta| ~ 1` means
-   fully PIT; `|beta| ~ 0` means fully TTC. Interpretation is
-   based on the absolute value (a negative slope indicates inverse
-   sensitivity but the same degree of cyclicality): |beta| > 0.8
-   highly PIT, 0.5-0.8 moderately cyclical, 0.2-0.5 low
-   cyclicality, < 0.2 near TTC.
+   The slope `beta` is the cyclicality elasticity. `|beta| ~ 1`
+   means fully PIT; `|beta| ~ 0` means fully TTC. Interpretation
+   is based on the absolute value (a negative slope indicates
+   inverse sensitivity but the same degree of cyclicality). This
+   is a continuous measure - there are no universally published
+   threshold bands for categorising beta values. The tool uses
+   soft descriptors: predominantly PIT (|beta| > 0.8), hybrid
+   (0.3-0.8), largely TTC (0.1-0.3), near TTC (< 0.1).
 
 2. **Two-point Delta PD / Delta ODR**: select two periods
    sufficiently apart in the cycle (e.g. a benign period and a
@@ -320,10 +322,13 @@ measures are implemented:
    Cyclicality = (PD_stress - PD_benign) / (ODR_stress - ODR_benign)
    ```
 
-   A value of 1 means the model fully passes through the cycle,
-   < 1 means it dampens it (more TTC), > 1 means it amplifies it.
-   The user selects the two reference periods, or the tool
-   auto-selects the highest and lowest ODR periods.
+   This is equivalent to the PRA's cyclicality measure `c` from
+   SS11/13 [7], applied to two selected periods rather than as a
+   regression over first differences. `c = 0` is fully TTC,
+   `c = 1` is fully PIT, `c > 1` amplifies the cycle. The PRA
+   caps cyclicality at 30% (`c <= 0.3`) for residential mortgage
+   rating systems. The user selects the two reference periods, or
+   the tool auto-selects the highest and lowest ODR periods.
 
 3. **CV of model PD**: `std(PD_t) / mean(PD_t)` - measures how
    much the model's own PD predictions vary across periods. Higher
@@ -509,6 +514,18 @@ portfolio losses into systematic and idiosyncratic components.
 and Portfolios*. Oxford University Press. Broader treatment of credit
 scoring methodology including logistic regression, reject inference,
 and model validation.
+
+[11] Marianski, A. (2023). *Estimating PD Cyclicality in the presence
+of noise: Theoretical discussion and experimental results*. Deloitte
+UK Financial Services Insights. Discusses estimation challenges for
+the PRA cyclicality measure using first-differences regression and
+the instability of direct observation methods.
+
+[12] Edinburgh Credit Research Centre (2024). *Understanding the true
+level of PD cyclicality across rating systems*. University of
+Edinburgh Business School. Notes that basic calculations and general
+assumptions are commonly used to classify cyclicality levels, and
+examines biases in standard estimation approaches.
 
 ---
 
