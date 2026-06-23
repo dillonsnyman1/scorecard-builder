@@ -15,6 +15,7 @@ import type {
   BinDetail,
   ClusterResponse,
   FactorThresholds,
+  RefineBinsResponse,
   ScorecardResponse,
   StabilityResponse,
   Step,
@@ -272,26 +273,32 @@ function App() {
     setError(null);
     try {
       const entries = [...refinedFactors.entries()];
-      const results = await Promise.all(
-        entries.map(([name, data]) => {
-          const edges: number[] = [];
-          for (const b of data.bins) {
-            if (!b.is_special) {
-              if (b.lower !== null) edges.push(b.lower);
-              if (b.upper !== null) edges.push(b.upper);
+      const results: RefineBinsResponse[] = [];
+      const BATCH_SIZE = 5;
+      for (let i = 0; i < entries.length; i += BATCH_SIZE) {
+        const batch = entries.slice(i, i + BATCH_SIZE);
+        const batchResults = await Promise.all(
+          batch.map(([name, data]) => {
+            const edges: number[] = [];
+            for (const b of data.bins) {
+              if (!b.is_special) {
+                if (b.lower !== null) edges.push(b.lower);
+                if (b.upper !== null) edges.push(b.upper);
+              }
             }
-          }
-          return refineBins({
-            data_id: dataId!,
-            target_column: targetColumn!,
-            factor_name: name,
-            bin_edges: [...new Set(edges)].sort((a, b) => a - b),
-            enforce_monotonicity: true,
-            monotonicity_direction: "auto",
-            special_values: specialValues,
-          });
-        }),
-      );
+            return refineBins({
+              data_id: dataId!,
+              target_column: targetColumn!,
+              factor_name: name,
+              bin_edges: [...new Set(edges)].sort((a, b) => a - b),
+              enforce_monotonicity: true,
+              monotonicity_direction: "auto",
+              special_values: specialValues,
+            });
+          }),
+        );
+        results.push(...batchResults);
+      }
       setRefinedFactors((prev) => {
         const next = new Map(prev);
         entries.forEach(([name], i) => {

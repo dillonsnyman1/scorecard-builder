@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { refineBins } from "../api/client";
 import type { BinDetail, RefineBinsResponse } from "../types/analysis";
 import { WoeChart } from "./WoeChart";
@@ -33,8 +33,14 @@ export function BinEditor({
   const [splitIndex, setSplitIndex] = useState<number | null>(null);
   const [splitValue, setSplitValue] = useState("");
   const [addEdgeValue, setAddEdgeValue] = useState("");
-  const [dataMin, setDataMin] = useState<number | null>(null);
-  const [dataMax, setDataMax] = useState<number | null>(null);
+  const [dataMin, setDataMin] = useState<number | null>(() => {
+    const lowers = initialBins.filter((b) => !b.is_special && b.lower !== null).map((b) => b.lower!);
+    return lowers.length > 0 ? Math.min(...lowers) : null;
+  });
+  const [dataMax, setDataMax] = useState<number | null>(() => {
+    const uppers = initialBins.filter((b) => !b.is_special && b.upper !== null).map((b) => b.upper!);
+    return uppers.length > 0 ? Math.max(...uppers) : null;
+  });
 
   const [baseEdges] = useState<number[]>(() => {
     const edges: number[] = [];
@@ -49,22 +55,6 @@ export function BinEditor({
 
   const regularBins = bins.filter((b) => !b.is_special);
   const specialBins = bins.filter((b) => b.is_special);
-
-  useEffect(() => {
-    refineBins({
-      data_id: dataId,
-      target_column: targetColumn,
-      factor_name: factorName,
-      bin_edges: baseEdges,
-      enforce_monotonicity: false,
-      monotonicity_direction: "auto",
-      special_values: specialValues,
-    }).then((res) => {
-      if (res.data_min !== null) setDataMin(res.data_min);
-      if (res.data_max !== null) setDataMax(res.data_max);
-    }).catch(() => {});
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
 
   function getCurrentEdges(): number[] {
     const edges: number[] = [];
