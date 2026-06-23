@@ -23,6 +23,7 @@ interface Props {
   targetColumn: string;
   factorDescriptions: Record<string, string>;
   initialDateColumn: string;
+  efwMethod: string;
 }
 
 type WeightMethod = "variance" | "coefficient" | "range";
@@ -33,8 +34,9 @@ export function ModelAssessmentPanel({
   onRunStability,
   loading,
   initialDateColumn,
+  efwMethod,
 }: Props) {
-  const [weightMethod, setWeightMethod] = useState<WeightMethod>("range");
+  const weightMethod = efwMethod as WeightMethod;
   const [stressPeriod, setStressPeriod] = useState("");
   const [benignPeriod, setBenignPeriod] = useState("");
   const hasAutoRun = useRef(false);
@@ -177,17 +179,9 @@ export function ModelAssessmentPanel({
       <details className="collapsible-section">
         <summary>Effective Weights</summary>
         <div style={{ padding: 18 }}>
-          <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 16 }}>
-            <span style={{ fontSize: 13, color: "var(--text)" }}>Weighting method:</span>
-            <div className="method-toggle">
-              <button className={`method-btn ${weightMethod === "range" ? "active" : ""}`}
-                onClick={() => setWeightMethod("range")}>Points Range</button>
-              <button className={`method-btn ${weightMethod === "coefficient" ? "active" : ""}`}
-                onClick={() => setWeightMethod("coefficient")}>Coefficient</button>
-              <button className={`method-btn ${weightMethod === "variance" ? "active" : ""}`}
-                onClick={() => setWeightMethod("variance")}>Score Variance</button>
-            </div>
-          </div>
+          <p style={{ margin: "0 0 12px", fontSize: 13, color: "var(--text)" }}>
+            Method: <strong>{{range: "Points Range", coefficient: "Coefficient", variance: "Score Variance"}[weightMethod] ?? weightMethod}</strong>
+          </p>
           <ResponsiveContainer width="100%" height={Math.max(200, weightData.length * 32)}>
             <BarChart data={weightData} layout="vertical" margin={{ top: 0, right: 24, bottom: 0, left: 140 }}>
               <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" horizontal={false} />

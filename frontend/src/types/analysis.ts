@@ -153,6 +153,8 @@ export interface ScorecardRequest {
   forced_factors: string[];
   max_corr: number | null;
   round_points: boolean;
+  efw_method: string;
+  efw_threshold: number;
 }
 
 export interface ScorecardBinPoints {

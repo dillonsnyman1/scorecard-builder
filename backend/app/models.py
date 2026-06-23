@@ -193,6 +193,8 @@ class ScorecardRequest(BaseModel):
     forced_factors: list[str] = Field(default_factory=list)
     max_corr: float | None = Field(default=None, ge=0.0, le=1.0)
     round_points: bool = False
+    efw_method: str = Field(default="range")
+    efw_threshold: float = Field(default=0.0, ge=0.0, le=100.0)
 
 
 class ScorecardBinPoints(BaseModel):

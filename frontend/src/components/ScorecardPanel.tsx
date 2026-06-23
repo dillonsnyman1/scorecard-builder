@@ -4,7 +4,7 @@ import type { BinDetail, ScorecardResponse, SelectionMethod } from "../types/ana
 
 interface Props {
   scorecardData: ScorecardResponse | null;
-  onFitScorecard: (baseScore: number, baseOdds: number, pdo: number, selectionMethod: SelectionMethod, pEnter: number, pRemove: number, maxFactors: number | null, forcedFactors: string[], maxCorr: number | null, roundPoints: boolean) => void;
+  onFitScorecard: (baseScore: number, baseOdds: number, pdo: number, selectionMethod: SelectionMethod, pEnter: number, pRemove: number, maxFactors: number | null, forcedFactors: string[], maxCorr: number | null, roundPoints: boolean, efwMethod: string, efwThreshold: number) => void;
   loading: boolean;
   factorDescriptions: Record<string, string>;
   factorNames: string[];
@@ -38,6 +38,8 @@ export function ScorecardPanel({
   const [forcedFactors, setForcedFactors] = useState<Set<string>>(new Set());
   const [maxCorr, setMaxCorr] = useState<number | null>(null);
   const [roundPoints, setRoundPoints] = useState(false);
+  const [efwMethod, setEfwMethod] = useState("range");
+  const [efwThreshold, setEfwThreshold] = useState(0);
   const [expandedFactor, setExpandedFactor] = useState<string | null>(null);
 
   return (
@@ -157,9 +159,27 @@ export function ScorecardPanel({
                 onChange={(e) => setRoundPoints(e.target.checked)} />
               Round points
             </label>
+          </div>
+        </div>
+        <div className="toolbar">
+          <div className="config-row-label">Effective Weight</div>
+          <div className="threshold-fields">
+            <div className="method-toggle">
+              <button className={`method-btn ${efwMethod === "range" ? "active" : ""}`}
+                onClick={() => setEfwMethod("range")}>Points Range</button>
+              <button className={`method-btn ${efwMethod === "coefficient" ? "active" : ""}`}
+                onClick={() => setEfwMethod("coefficient")}>Coefficient</button>
+              <button className={`method-btn ${efwMethod === "variance" ? "active" : ""}`}
+                onClick={() => setEfwMethod("variance")}>Score Variance</button>
+            </div>
+            <div className="threshold-field">
+              <label>Min EFW %</label>
+              <input type="number" step={1} min={0} max={50} value={efwThreshold}
+                onChange={(e) => setEfwThreshold(parseFloat(e.target.value) || 0)} />
+            </div>
             <button
               className="primary-button"
-              onClick={() => onFitScorecard(baseScore, baseOdds, pdo, selectionMethod, pEnter, pRemove, maxFactors, [...forcedFactors], maxCorr, roundPoints)}
+              onClick={() => onFitScorecard(baseScore, baseOdds, pdo, selectionMethod, pEnter, pRemove, maxFactors, [...forcedFactors], maxCorr, roundPoints, efwMethod, efwThreshold)}
               disabled={loading}
             >
               {loading ? "Fitting..." : "Fit Scorecard"}
@@ -243,6 +263,23 @@ export function ScorecardPanel({
           <details className="collapsible-section">
             <summary>Model Coefficients ({scorecardData.factors.length} factors)</summary>
             <div style={{ padding: 18 }}>
+              {(() => {
+                const efwData = scorecardData.factors.map((f) => {
+                  const pts = f.bins.map((b) => b.points);
+                  const woeVals = f.bins.filter((b) => !b.group.startsWith("S")).map((b) => b.woe);
+                  const woeStd = woeVals.length > 1
+                    ? Math.sqrt(woeVals.reduce((s, w) => s + (w - woeVals.reduce((a, b) => a + b, 0) / woeVals.length) ** 2, 0) / woeVals.length)
+                    : 0;
+                  const raw = efwMethod === "coefficient" ? Math.abs(f.coefficient)
+                    : efwMethod === "variance" ? Math.abs(f.coefficient) * woeStd
+                    : Math.max(...pts) - Math.min(...pts);
+                  return { name: f.factor_name, raw };
+                });
+                const totalEfw = efwData.reduce((s, e) => s + e.raw, 0) || 1;
+                const efwMap: Record<string, number> = {};
+                efwData.forEach((e) => { efwMap[e.name] = (e.raw / totalEfw) * 100; });
+
+                return (
               <div className="table-wrapper">
                 <table className="data-table compact">
                   <thead>
@@ -253,6 +290,7 @@ export function ScorecardPanel({
                       <th>P-value</th>
                       <th>Sig.</th>
                       <th>VIF</th>
+                      <th>EFW %</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -277,16 +315,19 @@ export function ScorecardPanel({
                           <td className={`mono ${f.vif !== null && f.vif > 5 ? "points-negative" : ""}`}>
                             {f.vif !== null ? f.vif.toFixed(2) : "-"}
                           </td>
+                          <td className="mono">{(efwMap[f.factor_name] ?? 0).toFixed(1)}%</td>
                         </tr>
                       ))}
                     <tr className="special-separator">
-                      <td colSpan={6}>
+                      <td colSpan={7}>
                         Intercept: {scorecardData.intercept.toFixed(4)}
                       </td>
                     </tr>
                   </tbody>
                 </table>
               </div>
+                );
+              })()}
             </div>
           </details>
 

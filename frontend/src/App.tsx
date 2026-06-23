@@ -71,6 +71,7 @@ function App() {
   const [refineRevision, setRefineRevision] = useState(0);
   const [scorecardData, setScorecardData] = useState<ScorecardResponse | null>(null);
   const [lastScorecardRequest, setLastScorecardRequest] = useState<Parameters<typeof fitScorecard>[0] | null>(null);
+  const [lastEfwMethod, setLastEfwMethod] = useState("range");
   const [stabilityData, setStabilityData] = useState<StabilityResponse | null>(null);
 
   function handleRerunAnalysis() {
@@ -175,7 +176,7 @@ function App() {
     setStep("refine");
   }
 
-  async function handleFitScorecard(baseScore: number, baseOdds: number, pdo: number, selectionMethod: string = "stepwise", pEnter: number = 0.05, pRemove: number = 0.05, maxFactors: number | null = null, forcedFactors: string[] = [], maxCorr: number | null = null, roundPoints: boolean = false) {
+  async function handleFitScorecard(baseScore: number, baseOdds: number, pdo: number, selectionMethod: string = "stepwise", pEnter: number = 0.05, pRemove: number = 0.05, maxFactors: number | null = null, forcedFactors: string[] = [], maxCorr: number | null = null, roundPoints: boolean = false, efwMethod: string = "range", efwThreshold: number = 0) {
     if (!dataId || !targetColumn) return;
     setLoading(true);
     setError(null);
@@ -205,9 +206,12 @@ function App() {
         forced_factors: forcedFactors,
         max_corr: maxCorr,
         round_points: roundPoints,
+        efw_method: efwMethod,
+        efw_threshold: efwThreshold,
       };
       const result = await fitScorecard(reqBody);
       setLastScorecardRequest(reqBody);
+      setLastEfwMethod(efwMethod);
       setScorecardData(result);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Scorecard fitting failed.");
@@ -600,6 +604,7 @@ function App() {
             targetColumn={targetColumn}
             factorDescriptions={factorDescriptions}
             initialDateColumn={dateColumn}
+            efwMethod={lastEfwMethod}
           />
           <button className="primary-button" onClick={() => setStep("report")}>
             Proceed to Report
@@ -609,7 +614,6 @@ function App() {
 
       {step === "report" && dataId && targetColumn && univariateData && (
         <ExportPanel
-          dataId={dataId}
           targetColumn={targetColumn}
           factors={exportFactors}
           allFactors={univariateData.factors}
@@ -630,6 +634,7 @@ function App() {
             corrThreshold,
             maxClusters,
             dateColumn,
+            efwMethod: lastEfwMethod,
           }}
           onExportScoredData={lastScorecardRequest ? async () => {
             try {

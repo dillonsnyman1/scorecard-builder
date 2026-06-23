@@ -382,6 +382,8 @@ def fit_scorecard(
     forced_factors: list[str] | None = None,
     max_corr: float | None = None,
     round_points: bool = False,
+    efw_method: str = "range",
+    efw_threshold: float = 0.0,
 ) -> dict:
     all_factor_names = [f["factor_name"] for f in factors]
     forced = set(forced_factors or [])
@@ -456,6 +458,58 @@ def fit_scorecard(
             coefficients, intercept, factor_bins, selected_names,
             base_score, base_odds, pdo, woe_df, target_clean, round_points,
         )
+
+    if efw_threshold > 0 and len(selected_names) > 1:
+        forced_set = set(forced or [])
+        for _ in range(len(selected_names)):
+            efw = {}
+            for i, name in enumerate(selected_names):
+                coef = float(coefficients[i])
+                woe_vals = [b["woe"] for b in factor_bins[name] if not b.get("is_special", False)]
+
+                if efw_method == "coefficient":
+                    efw[name] = abs(coef)
+                elif efw_method == "variance":
+                    woe_std = float(np.std(woe_vals)) if len(woe_vals) > 1 else 0
+                    efw[name] = abs(coef) * woe_std
+                else:
+                    fr = next((f for f in factors_result if f["factor_name"] == name), None)
+                    if fr:
+                        bin_pts = [b["points"] for b in fr["bins"]]
+                        efw[name] = max(bin_pts) - min(bin_pts) if bin_pts else 0
+                    else:
+                        efw[name] = 0
+
+            total_efw = sum(efw.values()) or 1
+            efw_pct = {n: (v / total_efw) * 100 for n, v in efw.items()}
+
+            below = [n for n in selected_names if efw_pct.get(n, 0) < efw_threshold and n not in forced_set]
+            if not below:
+                break
+
+            worst = min(below, key=lambda n: efw_pct.get(n, 0))
+            selected_names.remove(worst)
+            stepwise_log.append({
+                "step": len(stepwise_log) + 1, "action": "Removed",
+                "factor_name": worst, "p_value": None,
+                "reason": f"Effective weight {efw_pct.get(worst, 0):.1f}% below threshold {efw_threshold}% ({efw_method})",
+            })
+
+            if len(selected_names) < 2:
+                break
+
+            woe_matrix = woe_valid[selected_names].values
+            coefficients, intercept, p_values = fit_logistic_regression(woe_matrix, target_clean, selected_names)
+            lr = LogisticRegression(C=np.inf, solver="lbfgs", max_iter=1000, random_state=42)
+            lr.fit(woe_matrix, target_clean)
+            auc, gini, ks = compute_model_metrics(lr, woe_matrix, target_clean)
+            factors_result, scaling_factor, scaling_offset, total_min, total_max, base_points, distribution = \
+                compute_scorecard_points(
+                    coefficients, intercept, factor_bins, selected_names,
+                    base_score, base_odds, pdo, woe_df, target_clean, round_points,
+                )
+
+        dropped = [n for n in all_factor_names if n not in selected_names]
 
     vif_values: dict[str, float] = {}
     if len(selected_names) > 1:

@@ -1,17 +1,19 @@
 import { useState } from "react";
+import { exportFullReport } from "../utils/exportReport";
 import {
   Bar,
   BarChart,
   CartesianGrid,
   Cell,
+  ComposedChart,
+  Line,
   ResponsiveContainer,
   Tooltip,
   XAxis,
   YAxis,
 } from "recharts";
-import { exportShortlist } from "../api/client";
 import { WoeChart } from "./WoeChart";
-import type { BinDetail, ExportFactor, FactorAnalysis, FactorThresholds, ScorecardResponse, StabilityResponse } from "../types/analysis";
+import type { BinDetail, FactorAnalysis, FactorThresholds, ScorecardResponse, StabilityResponse } from "../types/analysis";
 import type { ClusterOverride } from "./ClusterShortlist";
 import { factorValidPct, rejectionReasons } from "../types/analysis";
 
@@ -23,7 +25,6 @@ interface FactorSummary {
 }
 
 interface Props {
-  dataId: string;
   targetColumn: string;
   factors: FactorSummary[];
   allFactors: FactorAnalysis[];
@@ -43,6 +44,7 @@ interface Props {
     corrThreshold: number;
     maxClusters: number | null;
     dateColumn: string;
+    efwMethod: string;
   };
   specialValues: number[];
   columns: string[];
@@ -61,6 +63,8 @@ interface AuditRow {
   status: AuditStatus;
   stage: string;
   reason: string;
+  in_model: boolean;
+  model_rejection_reason: string;
 }
 
 function buildAudit(
@@ -73,6 +77,8 @@ function buildAudit(
   finalFactors: Set<string>,
   clusterOverrides: Record<string, ClusterOverride>,
   factorDescriptions: Record<string, string>,
+  scorecardFactors: Set<string>,
+  stepwiseLog: Array<{ action: string; factor_name: string; reason: string }>,
 ): AuditRow[] {
   return allFactors.map((f) => {
     const vPct = factorValidPct(f, totalRows);
@@ -124,6 +130,15 @@ function buildAudit(
       reason = "Not selected from cluster";
     }
 
+    const inModel = scorecardFactors.has(f.factor_name);
+    let modelRejectionReason = "";
+    if (isFinal && !inModel) {
+      const logEntry = stepwiseLog.find(
+        (s) => s.factor_name === f.factor_name && (s.action === "Removed" || s.action === "Not entered"),
+      );
+      modelRejectionReason = logEntry?.reason ?? "Dropped during model fitting";
+    }
+
     return {
       factor_name: f.factor_name,
       description: factorDescriptions[f.factor_name] ?? "",
@@ -135,6 +150,8 @@ function buildAudit(
       status,
       stage,
       reason,
+      in_model: inModel,
+      model_rejection_reason: inModel ? "" : (isFinal ? modelRejectionReason : ""),
     };
   });
 }
@@ -144,7 +161,6 @@ function statusClass(status: AuditStatus): string {
 }
 
 export function ExportPanel({
-  dataId,
   targetColumn,
   factors,
   allFactors,
@@ -170,65 +186,14 @@ export function ExportPanel({
     allFactors, totalRows, thresholds,
     selectedAfterThresholds, overrideReasons,
     shortlistedFactors, finalFactors, clusterOverrides, factorDescriptions,
+    new Set(scorecardData?.factors.map((f) => f.factor_name) ?? []),
+    scorecardData?.stepwise_log ?? [],
   );
 
   const shortlisted = audit.filter((a) => a.status === "Shortlisted");
   const rejected = audit.filter((a) => a.status === "Rejected");
 
-  function getExportFactors(): ExportFactor[] {
-    return factors.map((f) => {
-      const edges: number[] = [];
-      for (const b of f.bins) {
-        if (!b.is_special) {
-          if (b.lower !== null) edges.push(b.lower);
-          if (b.upper !== null) edges.push(b.upper);
-        }
-      }
-      return {
-        factor_name: f.factor_name,
-        bin_edges: [...new Set(edges)].sort((a, b) => a - b),
-      };
-    });
-  }
 
-  async function handleExport(format: "csv" | "json") {
-    setLoading(true);
-    setError(null);
-    try {
-      const blob = await exportShortlist({
-        data_id: dataId,
-        target_column: targetColumn,
-        factors: getExportFactors(),
-        format,
-      });
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement("a");
-      a.href = url;
-      a.download = `shortlist.${format}`;
-      a.click();
-      URL.revokeObjectURL(url);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Export failed.");
-    } finally {
-      setLoading(false);
-    }
-  }
-
-  function handleExportAudit() {
-    const headers = ["Factor", "Description", "Type", "IV", "GINI", "Valid %", "Bins", "Status", "Stage", "Reason"];
-    const rows = audit.map((a) => [
-      a.factor_name, a.description, a.dtype, a.iv.toFixed(4), a.gini.toFixed(4),
-      `${a.valid_pct.toFixed(1)}%`, a.regular_bins, a.status, a.stage, a.reason,
-    ]);
-    const csv = [headers, ...rows].map((r) => r.map((v) => `"${v}"`).join(",")).join("\n");
-    const blob = new Blob([csv], { type: "text/csv" });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = "factor_audit_report.csv";
-    a.click();
-    URL.revokeObjectURL(url);
-  }
 
   return (
     <div className="export-panel">
@@ -256,10 +221,7 @@ export function ExportPanel({
             <div className="summary-card">
               <div className="summary-label">AUC / GINI</div>
               <div className="summary-value">{scorecardData.auc.toFixed(3)} / {scorecardData.gini.toFixed(3)}</div>
-            </div>
-            <div className="summary-card">
-              <div className="summary-label">Score Range</div>
-              <div className="summary-value">{scorecardData.total_min_score.toFixed(0)} - {scorecardData.total_max_score.toFixed(0)}</div>
+              <div style={{ marginTop: 6, fontSize: 13, color: "var(--text)" }}>Range: {scorecardData.total_min_score.toFixed(0)} - {scorecardData.total_max_score.toFixed(0)}</div>
             </div>
           </>
         )}
@@ -321,6 +283,19 @@ export function ExportPanel({
         <details className="collapsible-section">
           <summary>Scorecard Summary ({scorecardData.factors.length} factors)</summary>
           <div style={{ padding: 18 }}>
+            {(() => {
+              const em = config?.efwMethod ?? "range";
+              const efwRaw = scorecardData.factors.map((f) => {
+                const pts = f.bins.map((b) => b.points);
+                const woeVals = f.bins.filter((b) => !b.group.startsWith("S")).map((b) => b.woe);
+                const woeStd = woeVals.length > 1 ? Math.sqrt(woeVals.reduce((s, w) => s + (w - woeVals.reduce((a, b) => a + b, 0) / woeVals.length) ** 2, 0) / woeVals.length) : 0;
+                const raw = em === "coefficient" ? Math.abs(f.coefficient) : em === "variance" ? Math.abs(f.coefficient) * woeStd : Math.max(...pts) - Math.min(...pts);
+                return { name: f.factor_name, raw };
+              });
+              const totalEfw = efwRaw.reduce((s, e) => s + e.raw, 0) || 1;
+              const efwMap: Record<string, number> = {};
+              efwRaw.forEach((e) => { efwMap[e.name] = (e.raw / totalEfw) * 100; });
+              return (
             <div className="table-wrapper">
               <table className="data-table compact">
                 <thead>
@@ -331,6 +306,7 @@ export function ExportPanel({
                     <th>Min Pts</th>
                     <th>Max Pts</th>
                     <th>Bins</th>
+                    <th>EFW %</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -344,12 +320,15 @@ export function ExportPanel({
                         <td className="mono">{Math.min(...pts).toFixed(1)}</td>
                         <td className="mono">{Math.max(...pts).toFixed(1)}</td>
                         <td>{f.bins.filter((b) => !b.group.startsWith("S")).length}</td>
+                        <td className="mono">{(efwMap[f.factor_name] ?? 0).toFixed(1)}%</td>
                       </tr>
                     );
                   })}
                 </tbody>
               </table>
             </div>
+              );
+            })()}
           </div>
         </details>
 
@@ -464,7 +443,7 @@ export function ExportPanel({
         <details className="collapsible-section">
           <summary>GINI over Time</summary>
           <div style={{ padding: 18 }}>
-            {stabilityData.periods.some((p) => p.gini !== null) && (
+            {stabilityData.periods.some((p) => p.gini !== null) && (<>
               <div className="table-wrapper">
                 <table className="data-table compact">
                   <thead><tr><th>Period</th><th>GINI</th><th>GINI SE</th><th>Obs</th><th>Event Rate</th></tr></thead>
@@ -475,7 +454,23 @@ export function ExportPanel({
                   </tbody>
                 </table>
               </div>
-            )}
+              <ResponsiveContainer width="100%" height={250}>
+                <ComposedChart data={stabilityData.periods.filter((p) => p.gini !== null).map((p) => ({
+                  period: p.period.slice(0, 4),
+                  gini: p.gini! * 100,
+                  gini_upper: p.gini_se !== null ? (p.gini! + p.gini_se) * 100 : undefined,
+                  gini_lower: p.gini_se !== null ? (p.gini! - p.gini_se) * 100 : undefined,
+                }))} margin={{ top: 8, right: 16, bottom: 8, left: 0 }}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" />
+                  <XAxis dataKey="period" tick={{ fontSize: 11 }} />
+                  <YAxis tick={{ fontSize: 11 }} tickFormatter={(v: number) => `${v.toFixed(0)}%`} />
+                  <Tooltip formatter={(v) => `${Number(v).toFixed(2)}%`} />
+                  <Line type="monotone" dataKey="gini_upper" stroke="var(--accent)" strokeWidth={1} strokeDasharray="4 3" dot={false} name="GINI + SE" />
+                  <Line type="monotone" dataKey="gini_lower" stroke="var(--accent)" strokeWidth={1} strokeDasharray="4 3" dot={false} name="GINI - SE" />
+                  <Line type="monotone" dataKey="gini" stroke="var(--accent)" strokeWidth={2} dot={{ r: 3 }} name="GINI %" />
+                </ComposedChart>
+              </ResponsiveContainer>
+            </>)}
           </div>
         </details>
         <details className="collapsible-section">
@@ -537,6 +532,20 @@ export function ExportPanel({
         <details className="collapsible-section">
           <summary>Cyclicality Analysis</summary>
           <div style={{ padding: 18 }}>
+            <ResponsiveContainer width="100%" height={250}>
+              <ComposedChart data={stabilityData.periods.map((p) => ({
+                period: p.period.slice(0, 4),
+                odr: p.event_rate * 100,
+                model_pd: p.mean_model_pd !== null ? p.mean_model_pd * 100 : undefined,
+              }))} margin={{ top: 8, right: 16, bottom: 8, left: 0 }}>
+                <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" />
+                <XAxis dataKey="period" tick={{ fontSize: 11 }} />
+                <YAxis tick={{ fontSize: 11 }} tickFormatter={(v: number) => `${v.toFixed(1)}%`} />
+                <Tooltip formatter={(v) => `${Number(v).toFixed(2)}%`} />
+                <Line type="monotone" dataKey="odr" name="ODR" stroke="var(--accent)" strokeWidth={2} dot={{ r: 3 }} />
+                <Line type="monotone" dataKey="model_pd" name="Model PD" stroke="var(--negative)" strokeWidth={2} dot={{ r: 3 }} strokeDasharray="5 3" />
+              </ComposedChart>
+            </ResponsiveContainer>
             <div className="table-wrapper" style={{ marginBottom: 12 }}>
               <table className="data-table compact">
                 <thead><tr><th></th>{stabilityData.periods.map((p) => (<th key={p.period} className="mono">{p.period.slice(0, 4)}</th>))}</tr></thead>
@@ -579,6 +588,8 @@ export function ExportPanel({
                   <th>Status</th>
                   <th>Stage</th>
                   <th>Reason</th>
+                  <th>In Model</th>
+                  <th>Model Rejection</th>
                 </tr>
               </thead>
               <tbody>
@@ -593,6 +604,8 @@ export function ExportPanel({
                     <td><span className={`audit-badge ${statusClass(a.status)}`}>{a.status}</span></td>
                     <td>{a.stage}</td>
                     <td className="audit-reason">{a.reason || "-"}</td>
+                    <td className={a.in_model ? "monotonic-yes" : ""}>{a.in_model ? "Yes" : "No"}</td>
+                    <td className="audit-reason">{a.model_rejection_reason || "-"}</td>
                   </tr>
                 ))}
               </tbody>
@@ -709,40 +722,26 @@ export function ExportPanel({
       {error && <div className="status-message error">{error}</div>}
 
       <div className="export-actions">
-        <button className="primary-button" onClick={() => handleExport("csv")} disabled={loading}>
-          Export Binning CSV
-        </button>
-        <button className="primary-button" onClick={() => handleExport("json")} disabled={loading}>
-          Export Binning JSON
-        </button>
         {scorecardData && (
-          <button className="primary-button" onClick={() => {
-            const headers = ["Factor", "Group", "Bin", "WoE", "Points", "Count", "Event Rate"];
-            const rows: string[][] = [];
-            for (const f of scorecardData.factors) {
-              for (const b of f.bins) {
-                rows.push([
-                  f.factor_name, b.group, b.bin_label,
-                  b.woe.toFixed(4), b.points.toFixed(1),
-                  b.count.toString(), `${(b.event_rate * 100).toFixed(2)}%`,
-                ]);
-              }
+          <button className="primary-button" style={{ background: "#15803d" }} onClick={async () => {
+            setLoading(true);
+            try {
+              await exportFullReport({
+                config: config ?? { binningMethod: "tree", maxBins: 10, corrThreshold: 0.5, maxClusters: null, dateColumn: "", efwMethod: "range" },
+                totalRows, targetColumn, thresholds, allFactors,
+                scorecardData, stabilityData: stabilityData ?? null,
+                factorDescriptions,
+                audit,
+              });
+            } catch (err) {
+              setError(err instanceof Error ? err.message : "Report export failed.");
+            } finally {
+              setLoading(false);
             }
-            const csv = [headers, ...rows].map((r) => r.map((v) => `"${v}"`).join(",")).join("\n");
-            const blob = new Blob([csv], { type: "text/csv" });
-            const url = URL.createObjectURL(blob);
-            const a = document.createElement("a");
-            a.href = url;
-            a.download = "scorecard_points.csv";
-            a.click();
-            URL.revokeObjectURL(url);
-          }}>
-            Export Scorecard CSV
+          }} disabled={loading}>
+            {loading ? "Generating..." : "Export Full Report (Excel)"}
           </button>
         )}
-        <button className="primary-button" onClick={handleExportAudit}>
-          Export Audit Report
-        </button>
         {onExportScoredData && scorecardData && (
           <button className="primary-button" onClick={onExportScoredData}>
             Export Scored Data

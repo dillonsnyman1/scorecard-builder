@@ -10,7 +10,7 @@ import numpy as np
 import pandas as pd
 from fastapi import FastAPI, HTTPException, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import FileResponse, StreamingResponse
+from fastapi.responses import Response, StreamingResponse
 
 from app.cluster_engine import cluster_factors, compute_spearman_matrix, select_best_per_cluster
 from app.models import (
@@ -288,6 +288,7 @@ def fit_scorecard_endpoint(req: ScorecardRequest) -> ScorecardResponse:
         req.special_values, req.base_score, req.base_odds, req.pdo,
         req.selection_method.value, req.p_value_enter, req.p_value_remove, req.max_factors,
         req.forced_factors, req.max_corr, req.round_points,
+        req.efw_method, req.efw_threshold,
     )
 
     return ScorecardResponse(**result)
@@ -400,24 +401,26 @@ def stability_analysis(req: StabilityRequest) -> StabilityResponse:
 
 
 @app.get("/api/sample-csv")
-def download_sample_csv() -> FileResponse:
+def download_sample_csv() -> Response:
     if not SAMPLE_DATA_PATH.exists():
         raise HTTPException(status_code=404, detail="Sample data not available.")
-    return FileResponse(
-        SAMPLE_DATA_PATH,
+    content = SAMPLE_DATA_PATH.read_text(encoding="utf-8")
+    return Response(
+        content=content,
         media_type="text/csv",
-        filename="sample_factors.csv",
+        headers={"Content-Disposition": "attachment; filename=sample_factors.csv"},
     )
 
 
 @app.get("/api/sample-metadata")
-def download_sample_metadata() -> FileResponse:
+def download_sample_metadata() -> Response:
     if not SAMPLE_METADATA_PATH.exists():
         raise HTTPException(status_code=404, detail="Sample metadata not available.")
-    return FileResponse(
-        SAMPLE_METADATA_PATH,
+    content = SAMPLE_METADATA_PATH.read_text(encoding="utf-8")
+    return Response(
+        content=content,
         media_type="text/csv",
-        filename="sample_metadata.csv",
+        headers={"Content-Disposition": "attachment; filename=sample_metadata.csv"},
     )
 
 
