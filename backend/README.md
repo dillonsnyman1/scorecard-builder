@@ -16,8 +16,7 @@ evicted after expiry.
 | `POST` | `/api/stability` | Stability, cyclicality, GINI over time, factor PSI |
 | `POST` | `/api/export` | Export binning definitions as CSV/JSON |
 | `POST` | `/api/export-scored-data` | Export score + default indicator per observation |
-| `GET`  | `/api/sample-csv` | Download sample dataset (20k rows, 106 factors) |
-| `GET`  | `/api/sample-metadata` | Download factor descriptions CSV |
+| `POST` | `/api/load-sample` | Load sample dataset + metadata into memory, return profile |
 | `GET`  | `/api/health` | Health check |
 
 ## Engine modules

@@ -1,5 +1,5 @@
 import { useRef, useState } from "react";
-import { uploadCsv, loadSampleData, sampleCsvUrl } from "../api/client";
+import { uploadCsv, loadSampleData } from "../api/client";
 import type { ColumnProfile, UploadResponse } from "../types/analysis";
 
 interface Props {
@@ -172,9 +172,6 @@ export function UploadPanel({ onUploaded }: Props) {
           }}>
             Use Sample Data
           </button>
-          <a className="link-button" href={sampleCsvUrl()} download>
-            Download sample
-          </a>
         </div>
 
         {fileName && <p className="file-name">File: {fileName}</p>}

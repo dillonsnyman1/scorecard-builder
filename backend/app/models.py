@@ -50,6 +50,11 @@ class UploadResponse(BaseModel):
     detected_specials: list[DetectedSpecials] = []
 
 
+class SampleDataResponse(BaseModel):
+    upload: UploadResponse
+    descriptions: dict[str, str] = {}
+
+
 # ---------------------------------------------------------------------------
 # Univariate analysis
 # ---------------------------------------------------------------------------

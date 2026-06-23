@@ -138,40 +138,15 @@ export async function exportScoredData(req: ScorecardRequest): Promise<Blob> {
 }
 
 export async function loadSampleData(): Promise<{ uploadResponse: UploadResponse; descriptions: Record<string, string> }> {
-  const [csvRes, metaRes] = await Promise.all([
-    fetch(`${API_BASE}/api/sample-csv`),
-    fetch(`${API_BASE}/api/sample-metadata`),
-  ]);
+  const res = await fetch(`${API_BASE}/api/load-sample`, {
+    method: "POST",
+  });
 
-  if (!csvRes.ok) throw new Error("Failed to load sample data");
-  if (!metaRes.ok) throw new Error("Failed to load sample metadata");
-
-  const csvBlob = await csvRes.blob();
-  const file = new File([csvBlob], "sample_factors.csv", { type: "text/csv" });
-  const uploadResponse = await uploadCsv(file);
-
-  const metaText = await metaRes.text();
-  const descriptions: Record<string, string> = {};
-  const lines = metaText.split("\n").map((l) => l.trim()).filter(Boolean);
-  if (lines.length > 1) {
-    const header = lines[0].split(",").map((h) => h.trim().replace(/^"|"$/g, "").toLowerCase());
-    const nameIdx = header.findIndex((h) => h === "factor_name" || h === "factor" || h === "name");
-    const descIdx = header.findIndex((h) => h === "description" || h === "desc");
-    if (nameIdx !== -1 && descIdx !== -1) {
-      for (const line of lines.slice(1)) {
-        const cols = line.split(",").map((c) => c.trim().replace(/^"|"$/g, ""));
-        if (cols[nameIdx] && cols[descIdx]) descriptions[cols[nameIdx]] = cols[descIdx];
-      }
-    }
+  if (!res.ok) {
+    const body = await res.json().catch(() => null);
+    throw new Error(body?.detail ?? "Failed to load sample data");
   }
 
-  return { uploadResponse, descriptions };
-}
-
-export function sampleCsvUrl(): string {
-  return `${API_BASE}/api/sample-csv`;
-}
-
-export function sampleMetadataUrl(): string {
-  return `${API_BASE}/api/sample-metadata`;
+  const data = await res.json();
+  return { uploadResponse: data.upload, descriptions: data.descriptions };
 }

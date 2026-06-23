@@ -530,8 +530,7 @@ at `http://localhost:8000`.
 | `POST` | `/api/stability` | Stability, cyclicality, GINI over time, factor PSI |
 | `POST` | `/api/export` | Export binning definitions as CSV/JSON |
 | `POST` | `/api/export-scored-data` | Export scored dataset (score + default flag) |
-| `GET` | `/api/sample-csv` | Download sample dataset (20k rows, 106 factors) |
-| `GET` | `/api/sample-metadata` | Download sample factor descriptions |
+| `POST` | `/api/load-sample` | Load sample dataset + metadata into memory, return profile |
 
 The backend stores uploaded data in memory (keyed by UUID, 1-hour TTL)
 to support the multi-step workflow without a database. On Lambda cold

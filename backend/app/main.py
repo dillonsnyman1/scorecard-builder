@@ -10,7 +10,7 @@ import numpy as np
 import pandas as pd
 from fastapi import FastAPI, HTTPException, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import Response, StreamingResponse
+from fastapi.responses import StreamingResponse
 
 from app.cluster_engine import cluster_factors, compute_spearman_matrix, select_best_per_cluster
 from app.models import (
@@ -24,6 +24,7 @@ from app.models import (
     FactorAnalysis,
     RefineBinsRequest,
     RefineBinsResponse,
+    SampleDataResponse,
     ScorecardRequest,
     ScorecardResponse,
     StabilityRequest,
@@ -400,28 +401,35 @@ def stability_analysis(req: StabilityRequest) -> StabilityResponse:
     return StabilityResponse(**result)
 
 
-@app.get("/api/sample-csv")
-def download_sample_csv() -> Response:
+@app.post("/api/load-sample", response_model=SampleDataResponse)
+def load_sample_data() -> SampleDataResponse:
     if not SAMPLE_DATA_PATH.exists():
         raise HTTPException(status_code=404, detail="Sample data not available.")
-    content = SAMPLE_DATA_PATH.read_text(encoding="utf-8")
-    return Response(
-        content=content,
-        media_type="text/csv",
-        headers={"Content-Disposition": "attachment; filename=sample_factors.csv"},
+
+    df = pd.read_csv(SAMPLE_DATA_PATH)
+    data_id = str(uuid.uuid4())
+    _data_store[data_id] = (df, time.time())
+
+    columns, detected = profile_dataframe(df)
+    upload = UploadResponse(
+        data_id=data_id,
+        row_count=len(df),
+        column_count=len(df.columns),
+        columns=columns,
+        detected_specials=[DetectedSpecials(**d) for d in detected],
     )
 
+    descriptions: dict[str, str] = {}
+    if SAMPLE_METADATA_PATH.exists():
+        meta_df = pd.read_csv(SAMPLE_METADATA_PATH)
+        name_col = next((c for c in meta_df.columns if c.lower() in ("factor_name", "factor", "name")), None)
+        desc_col = next((c for c in meta_df.columns if c.lower() in ("description", "desc")), None)
+        if name_col and desc_col:
+            for _, row in meta_df.iterrows():
+                if pd.notna(row[name_col]) and pd.notna(row[desc_col]):
+                    descriptions[str(row[name_col])] = str(row[desc_col])
 
-@app.get("/api/sample-metadata")
-def download_sample_metadata() -> Response:
-    if not SAMPLE_METADATA_PATH.exists():
-        raise HTTPException(status_code=404, detail="Sample metadata not available.")
-    content = SAMPLE_METADATA_PATH.read_text(encoding="utf-8")
-    return Response(
-        content=content,
-        media_type="text/csv",
-        headers={"Content-Disposition": "attachment; filename=sample_metadata.csv"},
-    )
+    return SampleDataResponse(upload=upload, descriptions=descriptions)
 
 
 from mangum import Mangum  # noqa: E402
