@@ -231,9 +231,9 @@ step.
   - Interpretation thresholds documented inline
 - **Cyclicality Analysis**:
   - ODR vs Model PD dual-line chart
-  - Three cyclicality measures: log-log regression, two-point
+  - Four cyclicality measures: log-log regression, two-point
     Delta PD / Delta ODR (user-selectable benign/stress periods),
-    CV of model PD
+    first-differences regression (PRA SS11/13), CV of model PD
   - Interpretation thresholds documented inline
 
 ### Step 7: Report
@@ -295,7 +295,7 @@ in marketing strategy or distribution channel can shift the population.
 changes in the Observed Default Rate (ODR) across time periods [6][7].
 A scorecard that assigns the same PD regardless of the economic
 environment is Through-the-Cycle (TTC); one whose PDs move in
-lockstep with realised defaults is Point-in-Time (PIT). Three
+lockstep with realised defaults is Point-in-Time (PIT). Four
 measures are implemented:
 
 1. **Log-log regression**: regress the log of the model-implied PD
@@ -330,7 +330,23 @@ measures are implemented:
    rating systems. The user selects the two reference periods, or
    the tool auto-selects the highest and lowest ODR periods.
 
-3. **CV of model PD**: `std(PD_t) / mean(PD_t)` - measures how
+3. **First-differences regression** (PRA SS11/13 [7]): the PRA's
+   preferred estimation method. Regress changes in model PD on
+   changes in observed default rate across consecutive periods:
+
+   ```
+   PD(t) - PD(t-1) = c * (DR(t) - DR(t-1)) + epsilon
+   ```
+
+   The OLS slope `c` is the cyclicality coefficient [11][12].
+   `c = 0` is fully TTC, `c = 1` is fully PIT, `c > 1` amplifies
+   the cycle. The PRA caps `c` at 30% for residential mortgage
+   rating systems. This is more robust than the two-point measure
+   as it uses all consecutive period pairs rather than just two
+   selected periods, though Deloitte [11] notes that estimation
+   remains noisy with short time series.
+
+4. **CV of model PD**: `std(PD_t) / mean(PD_t)` - measures how
    much the model's own PD predictions vary across periods. Higher
    values indicate greater sensitivity to the cycle.
 

@@ -384,6 +384,10 @@ export function ModelAssessmentPanel({
                       <tr><td className="mono">0.3 &lt; |c| &le; 1</td><td>Partially PIT</td></tr>
                       <tr><td className="mono">|c| &le; 0.3</td><td>Within PRA expectation (SS11/13)</td></tr>
                       <tr><td className="mono">|c| = 0</td><td>No sensitivity (TTC)</td></tr>
+                      <tr><td rowSpan={4}>First-diff regression (PRA c)</td><td className="mono">|c| &gt; 1</td><td>Amplifies cycle</td></tr>
+                      <tr><td className="mono">0.3 &lt; |c| &le; 1</td><td>Partially PIT</td></tr>
+                      <tr><td className="mono">|c| &le; 0.3</td><td>Within PRA expectation (SS11/13)</td></tr>
+                      <tr><td className="mono">|c| = 0</td><td>No sensitivity (TTC)</td></tr>
                       <tr><td rowSpan={3}>CV of model PD</td><td className="mono">val &gt; 0.3</td><td>High dispersion</td></tr>
                       <tr><td className="mono">val &gt; 0.15</td><td>Moderate</td></tr>
                       <tr><td className="mono">val &le; 0.15</td><td>Low dispersion</td></tr>
@@ -483,6 +487,15 @@ export function ModelAssessmentPanel({
                             <td>{Math.abs(stabilityData.cyclicality.two_point) > 1 ? "Amplifies cycle" :
                               Math.abs(stabilityData.cyclicality.two_point) > 0.3 ? "Partially PIT" :
                               Math.abs(stabilityData.cyclicality.two_point) > 0 ? "Within PRA expectation" : "No sensitivity"}</td>
+                          </tr>
+                        )}
+                        {stabilityData.cyclicality.first_diff !== undefined && (
+                          <tr>
+                            <td>First-diff regression (PRA c)</td>
+                            <td className="mono">{stabilityData.cyclicality.first_diff.toFixed(4)}</td>
+                            <td>{Math.abs(stabilityData.cyclicality.first_diff) > 1 ? "Amplifies cycle" :
+                              Math.abs(stabilityData.cyclicality.first_diff) > 0.3 ? "Partially PIT" :
+                              Math.abs(stabilityData.cyclicality.first_diff) > 0 ? "Within PRA expectation" : "No sensitivity"}</td>
                           </tr>
                         )}
                         {stabilityData.cyclicality.cv_model_pd !== undefined && (

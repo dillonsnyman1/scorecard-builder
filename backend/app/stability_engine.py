@@ -86,7 +86,17 @@ def compute_all_cyclicality(
             results["two_point"] = round(float(d_pd / d_odr), 4)
             results["two_point_periods"] = f"{period_labels[valid_idx[min_i]]} to {period_labels[valid_idx[max_i]]}"
 
-    # 3. Coefficient of variation of model PD
+    # 3. First-differences regression (PRA SS11/13)
+    if valid.sum() >= 4:
+        valid_odrs = odrs[valid]
+        valid_pds_arr = pds[valid]
+        d_odr = np.diff(valid_odrs)
+        d_pd = np.diff(valid_pds_arr)
+        if np.std(d_odr) > 1e-10 and len(d_odr) >= 3:
+            slope = float(np.polyfit(d_odr, d_pd, 1)[0])
+            results["first_diff"] = round(slope, 4)
+
+    # 4. Coefficient of variation of model PD
     valid_pds = pds[valid]
     if len(valid_pds) >= 2 and np.mean(valid_pds) > 0:
         results["cv_model_pd"] = round(float(np.std(valid_pds) / np.mean(valid_pds)), 4)

@@ -256,6 +256,7 @@ export interface CyclicalityResults {
   log_regression?: number;
   two_point?: number;
   two_point_periods?: string;
+  first_diff?: number;
   cv_model_pd?: number;
 }
 

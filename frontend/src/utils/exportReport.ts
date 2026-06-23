@@ -405,6 +405,10 @@ export async function exportFullReport(data: ReportData) {
         cycRows.push([`Two-point${c.two_point_periods ? ` (${c.two_point_periods})` : ""}`, c.two_point,
           Math.abs(c.two_point) > 1 ? "Amplifies cycle" : Math.abs(c.two_point) > 0.3 ? "Partially PIT" : "Within PRA expectation"]);
       }
+      if (c.first_diff !== undefined) {
+        cycRows.push(["First-diff regression (PRA c)", c.first_diff,
+          Math.abs(c.first_diff) > 1 ? "Amplifies cycle" : Math.abs(c.first_diff) > 0.3 ? "Partially PIT" : "Within PRA expectation"]);
+      }
       if (c.cv_model_pd !== undefined) {
         cycRows.push(["CV of model PD", c.cv_model_pd,
           c.cv_model_pd > 0.3 ? "High dispersion" : c.cv_model_pd > 0.15 ? "Moderate" : "Low dispersion"]);
