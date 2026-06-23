@@ -40,9 +40,8 @@ resource "aws_lambda_function" "api" {
   package_type  = "Image"
   image_uri     = "${aws_ecr_repository.backend.repository_url}:${var.lambda_image_tag}"
   architectures = ["arm64"]
-  timeout                        = 30
-  memory_size                    = 1024
-  reserved_concurrent_executions = 1
+  timeout       = 30
+  memory_size   = 1024
 
   environment {
     variables = {
