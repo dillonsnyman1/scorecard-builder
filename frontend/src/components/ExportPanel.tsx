@@ -42,6 +42,7 @@ interface Props {
     maxBins: number;
     corrThreshold: number;
     maxClusters: number | null;
+    dateColumn: string;
   };
   specialValues: number[];
   columns: string[];
@@ -264,6 +265,57 @@ export function ExportPanel({
         )}
       </div>
 
+      <details className="collapsible-section">
+        <summary>Configuration Summary</summary>
+        <div style={{ padding: 18 }}>
+          <div className="config-summary-grid">
+            <div className="config-summary-section">
+              <h4>Data</h4>
+              <dl>
+                <dt>Observations</dt><dd>{totalRows.toLocaleString()}</dd>
+                <dt>Target variable</dt><dd className="mono">{targetColumn}</dd>
+                <dt>Date column</dt><dd className="mono">{config?.dateColumn || "-"}</dd>
+                <dt>Total factors</dt><dd>{allFactors.length}</dd>
+              </dl>
+            </div>
+            <div className="config-summary-section">
+              <h4>Binning</h4>
+              <dl>
+                <dt>Method</dt><dd>{config?.binningMethod === "equal_frequency" ? "Equal Frequency" : "Optimal (Tree)"}</dd>
+                <dt>Max bins</dt><dd>{config?.maxBins ?? 10}</dd>
+              </dl>
+            </div>
+            <div className="config-summary-section">
+              <h4>Screening Thresholds</h4>
+              <dl>
+                <dt>Min IV</dt><dd>{thresholds.iv}</dd>
+                <dt>Min GINI</dt><dd>{thresholds.gini}</dd>
+                <dt>Min Valid %</dt><dd>{thresholds.minValidPct}%</dd>
+                <dt>Min Bins</dt><dd>{thresholds.minBins}</dd>
+              </dl>
+            </div>
+            <div className="config-summary-section">
+              <h4>Clustering</h4>
+              <dl>
+                <dt>Correlation threshold</dt><dd>{config?.corrThreshold ?? 0.5}</dd>
+                <dt>Max clusters</dt><dd>{config?.maxClusters ?? "Auto"}</dd>
+              </dl>
+            </div>
+            {scorecardData && (
+              <div className="config-summary-section">
+                <h4>Scorecard</h4>
+                <dl>
+                  <dt>Base score</dt><dd>{scorecardData.scaling_offset !== undefined ? Math.round(scorecardData.scaling_offset + scorecardData.scaling_factor * Math.log(50)) : 600}</dd>
+                  <dt>PDO</dt><dd>{Math.round(scorecardData.scaling_factor * Math.LN2)}</dd>
+                  <dt>Factors in model</dt><dd>{scorecardData.factors.length}</dd>
+                  <dt>Round points</dt><dd>{Number.isInteger(scorecardData.factors[0]?.bins[0]?.points) ? "Yes" : "No"}</dd>
+                </dl>
+              </div>
+            )}
+          </div>
+        </div>
+      </details>
+
       {scorecardData && (
         <>
         <details className="collapsible-section">
@@ -407,127 +459,108 @@ export function ExportPanel({
         </details>
       )}
 
-      <details className="collapsible-section">
-        <summary>Configuration Summary</summary>
-        <div style={{ padding: 18 }}>
-          <div className="config-summary-grid">
-            <div className="config-summary-section">
-              <h4>Data</h4>
-              <dl>
-                <dt>Observations</dt><dd>{totalRows.toLocaleString()}</dd>
-                <dt>Target variable</dt><dd className="mono">{targetColumn}</dd>
-                <dt>Total factors</dt><dd>{allFactors.length}</dd>
-              </dl>
-            </div>
-            <div className="config-summary-section">
-              <h4>Binning</h4>
-              <dl>
-                <dt>Method</dt><dd>{config?.binningMethod === "equal_frequency" ? "Equal Frequency" : "Optimal (Tree)"}</dd>
-                <dt>Max bins</dt><dd>{config?.maxBins ?? 10}</dd>
-              </dl>
-            </div>
-            <div className="config-summary-section">
-              <h4>Screening Thresholds</h4>
-              <dl>
-                <dt>Min IV</dt><dd>{thresholds.iv}</dd>
-                <dt>Min GINI</dt><dd>{thresholds.gini}</dd>
-                <dt>Min Valid %</dt><dd>{thresholds.minValidPct}%</dd>
-                <dt>Min Bins</dt><dd>{thresholds.minBins}</dd>
-              </dl>
-            </div>
-            <div className="config-summary-section">
-              <h4>Clustering</h4>
-              <dl>
-                <dt>Correlation threshold</dt><dd>{config?.corrThreshold ?? 0.5}</dd>
-                <dt>Max clusters</dt><dd>{config?.maxClusters ?? "Auto"}</dd>
-              </dl>
-            </div>
-            {scorecardData && (
-              <div className="config-summary-section">
-                <h4>Scorecard</h4>
-                <dl>
-                  <dt>Base score</dt><dd>{scorecardData.scaling_offset !== undefined ? Math.round(scorecardData.scaling_offset + scorecardData.scaling_factor * Math.log(50)) : 600}</dd>
-                  <dt>PDO</dt><dd>{Math.round(scorecardData.scaling_factor * Math.LN2)}</dd>
-                  <dt>Factors in model</dt><dd>{scorecardData.factors.length}</dd>
-                  <dt>Round points</dt><dd>{Number.isInteger(scorecardData.factors[0]?.bins[0]?.points) ? "Yes" : "No"}</dd>
-                </dl>
-              </div>
-            )}
-          </div>
-        </div>
-      </details>
-
       {stabilityData && (
+        <>
         <details className="collapsible-section">
-          <summary>Stability & Cyclicality Summary</summary>
+          <summary>GINI over Time</summary>
           <div style={{ padding: 18 }}>
-            <div className="table-wrapper" style={{ marginBottom: 16 }}>
-              <table className="data-table compact">
-                <thead>
-                  <tr>
-                    <th>Period</th>
-                    <th>Obs</th>
-                    <th>ODR</th>
-                    <th>Model PD</th>
-                    <th>Mean Score</th>
-                    <th>PSI</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {stabilityData.periods.map((p) => (
-                    <tr key={p.period}>
-                      <td className="mono">{p.period}</td>
-                      <td>{p.obs_count.toLocaleString()}</td>
-                      <td className="mono">{(p.event_rate * 100).toFixed(2)}%</td>
-                      <td className="mono">{p.mean_model_pd !== null ? (p.mean_model_pd * 100).toFixed(2) + "%" : "-"}</td>
-                      <td className="mono">{p.mean_score !== null ? p.mean_score.toFixed(1) : "-"}</td>
-                      <td className={`mono ${p.psi !== null && p.psi > 0.25 ? "points-negative" : p.psi !== null && p.psi > 0.1 ? "sig-mid" : ""}`}>
-                        {p.psi !== null ? p.psi.toFixed(4) : "-"}
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-            {Object.keys(stabilityData.cyclicality).length > 0 && (
+            {stabilityData.periods.some((p) => p.gini !== null) && (
               <div className="table-wrapper">
                 <table className="data-table compact">
-                  <thead>
-                    <tr><th>Cyclicality Method</th><th>Value</th><th>Interpretation</th></tr>
-                  </thead>
+                  <thead><tr><th>Period</th><th>GINI</th><th>GINI SE</th><th>Obs</th><th>Event Rate</th></tr></thead>
                   <tbody>
-                    {stabilityData.cyclicality.log_regression !== undefined && (
-                      <tr>
-                        <td>Log-log regression</td>
-                        <td className="mono">{stabilityData.cyclicality.log_regression.toFixed(4)}</td>
-                        <td>{Math.abs(stabilityData.cyclicality.log_regression) > 0.8 ? "Highly PIT" :
-                          Math.abs(stabilityData.cyclicality.log_regression) > 0.5 ? "Moderately cyclical" :
-                          Math.abs(stabilityData.cyclicality.log_regression) > 0.2 ? "Low cyclicality" : "Near TTC"}</td>
-                      </tr>
-                    )}
-                    {stabilityData.cyclicality.two_point !== undefined && (
-                      <tr>
-                        <td>Two-point{stabilityData.cyclicality.two_point_periods ? ` (${stabilityData.cyclicality.two_point_periods})` : ""}</td>
-                        <td className="mono">{stabilityData.cyclicality.two_point.toFixed(4)}</td>
-                        <td>{Math.abs(stabilityData.cyclicality.two_point) > 1 ? "Amplifies cycle" :
-                          Math.abs(stabilityData.cyclicality.two_point) > 0.5 ? "Passes through" :
-                          Math.abs(stabilityData.cyclicality.two_point) > 0 ? "Dampens cycle" : "No sensitivity"}</td>
-                      </tr>
-                    )}
-                    {stabilityData.cyclicality.cv_model_pd !== undefined && (
-                      <tr>
-                        <td>CV of model PD</td>
-                        <td className="mono">{stabilityData.cyclicality.cv_model_pd.toFixed(4)}</td>
-                        <td>{stabilityData.cyclicality.cv_model_pd > 0.3 ? "High dispersion" :
-                          stabilityData.cyclicality.cv_model_pd > 0.15 ? "Moderate" : "Low dispersion"}</td>
-                      </tr>
-                    )}
+                    {stabilityData.periods.map((p) => (
+                      <tr key={p.period}><td className="mono">{p.period.slice(0, 4)}</td><td className="mono">{p.gini !== null ? p.gini.toFixed(4) : "-"}</td><td className="mono">{p.gini_se !== null ? p.gini_se.toFixed(4) : "-"}</td><td>{p.obs_count.toLocaleString()}</td><td className="mono">{(p.event_rate * 100).toFixed(2)}%</td></tr>
+                    ))}
                   </tbody>
                 </table>
               </div>
             )}
           </div>
         </details>
+        <details className="collapsible-section">
+          <summary>Stability Analysis</summary>
+          <div style={{ padding: 18 }}>
+            <details>
+              <summary style={{ fontSize: 14, fontWeight: 600, color: "var(--text-h)", cursor: "pointer", marginBottom: 8 }}>Score PSI Year-on-Year</summary>
+              <div className="table-wrapper" style={{ marginBottom: 16 }}>
+                <table className="data-table compact">
+                  <thead><tr><th>Period</th><th>Obs</th><th>Events</th><th>Event Rate</th><th>Mean Score</th><th>PSI</th></tr></thead>
+                  <tbody>
+                    {stabilityData.periods.map((p) => (
+                      <tr key={p.period}><td className="mono">{p.period.slice(0, 4)}</td><td>{p.obs_count.toLocaleString()}</td><td>{p.event_count.toLocaleString()}</td><td className="mono">{(p.event_rate * 100).toFixed(2)}%</td><td className="mono">{p.mean_score !== null ? p.mean_score.toFixed(1) : "-"}</td><td className={`mono ${p.psi !== null ? p.psi > 0.25 ? "psi-red" : p.psi > 0.1 ? "psi-amber" : "psi-green" : ""}`}>{p.psi !== null ? p.psi.toFixed(4) : "-"}</td></tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </details>
+            {stabilityData.factor_stability.length > 0 && (
+              <details>
+                <summary style={{ fontSize: 14, fontWeight: 600, color: "var(--text-h)", cursor: "pointer", marginBottom: 8 }}>Factor IV by Period</summary>
+                <div className="table-wrapper" style={{ marginBottom: 16 }}>
+                  <table className="data-table compact">
+                    <thead><tr><th>Factor</th>{stabilityData.periods.map((p) => (<th key={p.period} className="mono">{p.period.slice(0, 4)}</th>))}</tr></thead>
+                    <tbody>
+                      {stabilityData.factor_stability.map((fs) => (<tr key={fs.factor_name}><td>{fs.factor_name}</td>{stabilityData.periods.map((p) => { const pd = fs.periods.find((fp) => fp.period === p.period); const iv = pd?.iv; return <td key={p.period} className={`mono ${iv != null ? iv >= 0.1 ? "iv-green" : iv >= 0.02 ? "iv-amber" : "iv-red" : ""}`}>{pd ? pd.iv.toFixed(4) : "-"}</td>; })}</tr>))}
+                    </tbody>
+                  </table>
+                </div>
+              </details>
+            )}
+            {(stabilityData.factor_psi ?? []).length > 0 && (<>
+              <details>
+                <summary style={{ fontSize: 14, fontWeight: 600, color: "var(--text-h)", cursor: "pointer", marginBottom: 8 }}>Factor PSI Year-on-Year</summary>
+                <div className="table-wrapper" style={{ marginBottom: 16 }}>
+                  <table className="data-table compact">
+                    <thead><tr><th>Factor</th>{stabilityData.periods.map((p) => (<th key={p.period} className="mono">{p.period.slice(0, 4)}</th>))}</tr></thead>
+                    <tbody>
+                      {(stabilityData.factor_psi ?? []).map((fp) => (<tr key={fp.factor_name}><td>{fp.factor_name}</td>{stabilityData.periods.map((p) => { const pd = fp.periods.find((x) => x.period === p.period); const val = pd?.psi_yoy; return <td key={p.period} className={`mono ${val != null ? val > 0.25 ? "psi-red" : val > 0.1 ? "psi-amber" : "psi-green" : ""}`}>{val != null ? val.toFixed(4) : "-"}</td>; })}</tr>))}
+                    </tbody>
+                  </table>
+                </div>
+              </details>
+              <details>
+                <summary style={{ fontSize: 14, fontWeight: 600, color: "var(--text-h)", cursor: "pointer", marginBottom: 8 }}>Factor PSI vs Latest ({stabilityData.periods[stabilityData.periods.length - 1]?.period.slice(0, 4)})</summary>
+                <div className="table-wrapper">
+                  <table className="data-table compact">
+                    <thead><tr><th>Factor</th>{stabilityData.periods.map((p) => (<th key={p.period} className="mono">{p.period.slice(0, 4)}</th>))}</tr></thead>
+                    <tbody>
+                      {(stabilityData.factor_psi ?? []).map((fp) => (<tr key={fp.factor_name}><td>{fp.factor_name}</td>{stabilityData.periods.map((p) => { const pd = fp.periods.find((x) => x.period === p.period); const val = pd?.psi_vs_latest; return <td key={p.period} className={`mono ${val != null ? val > 0.25 ? "psi-red" : val > 0.1 ? "psi-amber" : "psi-green" : ""}`}>{val != null ? val.toFixed(4) : "-"}</td>; })}</tr>))}
+                    </tbody>
+                  </table>
+                </div>
+              </details>
+            </>)}
+          </div>
+        </details>
+
+        <details className="collapsible-section">
+          <summary>Cyclicality Analysis</summary>
+          <div style={{ padding: 18 }}>
+            <div className="table-wrapper" style={{ marginBottom: 12 }}>
+              <table className="data-table compact">
+                <thead><tr><th></th>{stabilityData.periods.map((p) => (<th key={p.period} className="mono">{p.period.slice(0, 4)}</th>))}</tr></thead>
+                <tbody>
+                  <tr><td style={{ fontWeight: 600 }}>ODR</td>{stabilityData.periods.map((p) => (<td key={p.period} className="mono">{(p.event_rate * 100).toFixed(2)}%</td>))}</tr>
+                  <tr><td style={{ fontWeight: 600 }}>Model PD</td>{stabilityData.periods.map((p) => (<td key={p.period} className="mono">{p.mean_model_pd !== null ? (p.mean_model_pd * 100).toFixed(2) + "%" : "-"}</td>))}</tr>
+                </tbody>
+              </table>
+            </div>
+            {Object.keys(stabilityData.cyclicality).length > 0 && (
+              <div className="table-wrapper">
+                <table className="data-table compact">
+                  <thead><tr><th>Method</th><th>Value</th><th>Interpretation</th></tr></thead>
+                  <tbody>
+                    {stabilityData.cyclicality.log_regression !== undefined && (<tr><td>Log-log regression</td><td className="mono">{stabilityData.cyclicality.log_regression.toFixed(4)}</td><td>{Math.abs(stabilityData.cyclicality.log_regression) > 0.8 ? "Highly PIT" : Math.abs(stabilityData.cyclicality.log_regression) > 0.5 ? "Moderately cyclical" : Math.abs(stabilityData.cyclicality.log_regression) > 0.2 ? "Low cyclicality" : "Near TTC"}</td></tr>)}
+                    {stabilityData.cyclicality.two_point !== undefined && (<tr><td>Two-point{stabilityData.cyclicality.two_point_periods ? ` (${stabilityData.cyclicality.two_point_periods})` : ""}</td><td className="mono">{stabilityData.cyclicality.two_point.toFixed(4)}</td><td>{Math.abs(stabilityData.cyclicality.two_point) > 1 ? "Amplifies cycle" : Math.abs(stabilityData.cyclicality.two_point) > 0.5 ? "Passes through" : Math.abs(stabilityData.cyclicality.two_point) > 0 ? "Dampens cycle" : "No sensitivity"}</td></tr>)}
+                    {stabilityData.cyclicality.cv_model_pd !== undefined && (<tr><td>CV of model PD</td><td className="mono">{stabilityData.cyclicality.cv_model_pd.toFixed(4)}</td><td>{stabilityData.cyclicality.cv_model_pd > 0.3 ? "High dispersion" : stabilityData.cyclicality.cv_model_pd > 0.15 ? "Moderate" : "Low dispersion"}</td></tr>)}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </div>
+        </details>
+        </>
       )}
 
       <details className="collapsible-section">
@@ -707,7 +740,7 @@ export function ExportPanel({
             Export Scorecard CSV
           </button>
         )}
-        <button className="link-button" onClick={handleExportAudit}>
+        <button className="primary-button" onClick={handleExportAudit}>
           Export Audit Report
         </button>
         {onExportScoredData && scorecardData && (

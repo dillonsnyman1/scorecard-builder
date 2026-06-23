@@ -629,6 +629,7 @@ function App() {
             maxBins,
             corrThreshold,
             maxClusters,
+            dateColumn,
           }}
           onExportScoredData={lastScorecardRequest ? async () => {
             try {
