@@ -79,8 +79,9 @@ values don't distort the binning of valid observations.
 - **Information Value (IV)**: `sum((% non-events - % events) * WoE)`
   across all bins - measures the overall predictive power of the
   factor [1][2]
-- **GINI coefficient**: `2 * AUC - 1` from a univariate logistic
-  regression - measures the factor's ability to rank-order risk [3]
+- **GINI coefficient**: `|2 * AUC - 1|` where AUC is computed directly
+  from the concordance between raw factor values and the target -
+  measures the factor's ability to rank-order risk [3]
 
 Factors are ranked by GINI and can be filtered by configurable
 thresholds:

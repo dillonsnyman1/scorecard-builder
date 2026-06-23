@@ -29,7 +29,7 @@ Core WoE/IV computation with missing and special value handling:
 - **`auto_bin_numeric`** - decision-tree optimal binning or equal-frequency
 - **`compute_woe_iv`** - WoE per bin + total IV for numeric factors
 - **`compute_woe_iv_categorical`** - same for categorical factors
-- **`compute_gini`** - GINI from univariate logistic regression AUC
+- **`compute_gini`** - GINI from direct AUC (concordance statistic)
 - **`analyze_all_factors`** - orchestrates the above for every factor
 - **`refine_bins`** - recompute bins for user-adjusted edges
 - **`enforce_monotonicity`** - merge bins to enforce WoE ordering
