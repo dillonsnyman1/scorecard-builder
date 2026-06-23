@@ -61,6 +61,7 @@ class UnivariateRequest(BaseModel):
     max_bins: int = Field(default=10, ge=2, le=50)
     iv_threshold: float = Field(default=0.02, ge=0.0)
     special_values: list[float] = Field(default_factory=lambda: [-999.0, 9999.0])
+    exclude_columns: list[str] = Field(default_factory=list)
 
 
 class BinDetail(BaseModel):
@@ -264,6 +265,8 @@ class PeriodMetrics(BaseModel):
     event_rate: float
     mean_score: float | None = None
     mean_model_pd: float | None = None
+    gini: float | None = None
+    gini_se: float | None = None
     psi: float | None = None
 
 
@@ -276,6 +279,7 @@ class StabilityResponse(BaseModel):
     periods: list[PeriodMetrics]
     factor_stability: list[FactorStability]
     overall_psi: float | None = None
+    factor_psi: list[dict] = []
     cyclicality: dict = {}
     date_min: str | None = None
     date_max: str | None = None

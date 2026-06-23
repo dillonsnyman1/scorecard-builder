@@ -5,6 +5,8 @@ import math
 import numpy as np
 import pandas as pd
 
+from sklearn.metrics import roc_auc_score
+
 from app.shortlist_engine import analyze_factor
 
 
@@ -158,6 +160,26 @@ def run_stability_analysis(
             if len(valid_pds) > 0:
                 mean_model_pd = round(float(np.mean(valid_pds)), 6)
 
+        period_gini = None
+        period_gini_se = None
+        if model_pds is not None:
+            p_pds_all = model_pds[mask.values]
+            p_tgt = tgt[valid]
+            p_pds_valid = p_pds_all[valid]
+            if len(np.unique(p_tgt)) >= 2 and len(p_pds_valid) >= 10:
+                try:
+                    auc = roc_auc_score(p_tgt, p_pds_valid)
+                    period_gini = round(2 * auc - 1, 4)
+                    n1 = int(p_tgt.sum())
+                    n0 = len(p_tgt) - n1
+                    if n1 > 0 and n0 > 0:
+                        q1 = auc / (2 - auc)
+                        q2 = 2 * auc * auc / (1 + auc)
+                        auc_var = (auc * (1 - auc) + (n1 - 1) * (q1 - auc * auc) + (n0 - 1) * (q2 - auc * auc)) / (n1 * n0)
+                        period_gini_se = round(2 * math.sqrt(max(auc_var, 0)), 4)
+                except Exception:
+                    pass
+
         period_odrs.append(er)
         period_model_pds.append(mean_model_pd if mean_model_pd is not None else er)
 
@@ -168,19 +190,30 @@ def run_stability_analysis(
             "event_rate": er,
             "mean_score": mean_score,
             "mean_model_pd": mean_model_pd,
+            "gini": period_gini,
+            "gini_se": period_gini_se,
             "psi": None,
         })
 
     if scores is not None and len(period_scores) > 1:
-        base_period = all_periods[0]
-        base_scores = period_scores.get(base_period, np.array([]))
-        if len(base_scores) > 0:
-            for pm in period_metrics:
-                p = pm["period"]
-                if p == base_period:
+        all_scores_combined = np.concatenate(list(period_scores.values()))
+        score_edges = np.percentile(all_scores_combined, np.linspace(0, 100, 11))
+        score_edges[0] = -np.inf
+        score_edges[-1] = np.inf
+        score_edges = np.unique(score_edges)
+
+        prev_pct = None
+        for i, pm in enumerate(period_metrics):
+            p = pm["period"]
+            curr_scores = period_scores.get(p, np.array([]))
+            if len(curr_scores) > 0:
+                curr_counts = np.histogram(curr_scores, bins=score_edges)[0].astype(float)
+                curr_pct = np.maximum(curr_counts / curr_counts.sum(), 0.0001)
+                if prev_pct is None:
                     pm["psi"] = 0.0
-                elif p in period_scores:
-                    pm["psi"] = compute_psi(base_scores, period_scores[p])
+                else:
+                    pm["psi"] = round(float(np.sum((curr_pct - prev_pct) * np.log(curr_pct / prev_pct))), 6)
+                prev_pct = curr_pct
 
     overall_psi = None
     if scores is not None and len(period_scores) > 1:
@@ -210,6 +243,53 @@ def run_stability_analysis(
                 period_data.append({"period": p, "iv": 0.0, "gini": 0.0, "obs_count": int(mask.sum())})
         factor_stability.append({"factor_name": name, "periods": period_data})
 
+    factor_psi = []
+    for f in factors:
+        name = f["factor_name"]
+        edges = sorted(f.get("bin_edges", []))
+        if name not in df.columns:
+            continue
+        try:
+            vals = df[name].values.astype(float)
+        except (ValueError, TypeError):
+            continue
+
+        bin_edges = [-np.inf] + edges + [np.inf]
+
+        def bin_distribution(v: np.ndarray) -> np.ndarray:
+            v = v[~np.isnan(v)]
+            if len(v) == 0:
+                return np.zeros(len(bin_edges) - 1)
+            counts = np.histogram(v, bins=bin_edges)[0].astype(float)
+            total = counts.sum()
+            return counts / total if total > 0 else counts
+
+        base_period = all_periods[0]
+        latest_period = all_periods[-1]
+        base_dist = bin_distribution(vals[(df["_period"] == base_period).values])
+        latest_dist = bin_distribution(vals[(df["_period"] == latest_period).values])
+
+        def psi_between(ref: np.ndarray, comp: np.ndarray) -> float | None:
+            if ref.sum() > 0 and comp.sum() > 0:
+                r = np.maximum(ref, 0.0001)
+                c = np.maximum(comp, 0.0001)
+                return round(float(np.sum((c - r) * np.log(c / r))), 6)
+            return None
+
+        all_dists = {}
+        for p in all_periods:
+            all_dists[p] = bin_distribution(vals[(df["_period"] == p).values])
+
+        psi_by_period = []
+        for i, p in enumerate(all_periods):
+            prev_dist = all_dists[all_periods[i - 1]] if i > 0 else all_dists[p]
+            psi_by_period.append({
+                "period": p,
+                "psi_yoy": psi_between(prev_dist, all_dists[p]) if i > 0 else 0.0,
+                "psi_vs_latest": psi_between(latest_dist, all_dists[p]),
+            })
+        factor_psi.append({"factor_name": name, "periods": psi_by_period})
+
     cyclicality = compute_all_cyclicality(
         period_odrs, period_model_pds, all_periods,
         stress_period, benign_period,
@@ -218,6 +298,7 @@ def run_stability_analysis(
     return {
         "periods": period_metrics,
         "factor_stability": factor_stability,
+        "factor_psi": factor_psi,
         "overall_psi": overall_psi,
         "cyclicality": cyclicality,
         "date_min": date_min,

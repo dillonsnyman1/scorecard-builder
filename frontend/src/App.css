@@ -1287,6 +1287,19 @@ tbody tr:hover .sticky-col {
   border-right: 2px solid var(--border);
 }
 
+.threshold-field input[type="range"] {
+  width: 100px;
+  cursor: pointer;
+}
+
+.threshold-field input[type="month"] {
+  padding: 4px 8px;
+  border-radius: 5px;
+  border: 1px solid var(--border);
+  font-size: 13px;
+  color: var(--text-h);
+}
+
 .forced-factors-grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
@@ -1387,6 +1400,13 @@ tr.audit-override {
   gap: 12px;
   flex-wrap: wrap;
 }
+
+.psi-green { background-color: #f0fdf4 !important; color: #15803d !important; }
+.psi-amber { background-color: #fffbeb !important; color: #b45309 !important; font-weight: 600; }
+.psi-red { background-color: #fef2f2 !important; color: #b91c1c !important; font-weight: 600; }
+.iv-green { background-color: #f0fdf4 !important; color: #15803d !important; }
+.iv-amber { background-color: #fffbeb !important; color: #b45309 !important; }
+.iv-red { background-color: #fef2f2 !important; color: #b91c1c !important; }
 
 .config-summary-grid {
   display: grid;

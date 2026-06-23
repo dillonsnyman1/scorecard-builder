@@ -1,12 +1,13 @@
 import { useCallback, useState } from "react";
 
 import "./App.css";
-import { exportScoredData, fitScorecard, runClustering, runUnivariate } from "./api/client";
+import { exportScoredData, fitScorecard, runClustering, runStabilityAnalysis, runUnivariate } from "./api/client";
 import { BinEditor } from "./components/BinEditor";
 import { ClusterShortlist, type ClusterOverride } from "./components/ClusterShortlist";
 import { CorrelationHeatmap } from "./components/CorrelationHeatmap";
 import { DataProfileCards } from "./components/DataProfileCards";
 import { ExportPanel } from "./components/ExportPanel";
+import { ModelAssessmentPanel } from "./components/ModelAssessmentPanel";
 import { ScorecardPanel } from "./components/ScorecardPanel";
 import { UnivariateTable } from "./components/UnivariateTable";
 import { UploadPanel } from "./components/UploadPanel";
@@ -15,6 +16,7 @@ import type {
   ClusterResponse,
   FactorThresholds,
   ScorecardResponse,
+  StabilityResponse,
   Step,
   UnivariateResponse,
   UploadResponse,
@@ -47,6 +49,7 @@ function App() {
   const [specialValues, setSpecialValues] = useState<number[]>([-999, 9999]);
   const [totalRows, setTotalRows] = useState(0);
   const [allColumns, setAllColumns] = useState<string[]>([]);
+  const [dateColumn, setDateColumn] = useState("");
 
   const [univariateData, setUnivariateData] = useState<UnivariateResponse | null>(null);
   const [thresholds, setThresholds] = useState<FactorThresholds>(DEFAULT_THRESHOLDS);
@@ -68,6 +71,7 @@ function App() {
   const [refineRevision, setRefineRevision] = useState(0);
   const [scorecardData, setScorecardData] = useState<ScorecardResponse | null>(null);
   const [lastScorecardRequest, setLastScorecardRequest] = useState<Parameters<typeof fitScorecard>[0] | null>(null);
+  const [stabilityData, setStabilityData] = useState<StabilityResponse | null>(null);
 
   function handleRerunAnalysis() {
     if (!dataId) return;
@@ -80,6 +84,7 @@ function App() {
       max_bins: maxBins,
       iv_threshold: 0,
       special_values: specialValues,
+      exclude_columns: dateColumn ? [dateColumn] : [],
     })
       .then((res) => {
         setUnivariateData(res);
@@ -100,12 +105,13 @@ function App() {
     setSelectedFactors(new Set(passing));
   }
 
-  function handleUploaded(data: UploadResponse, target: string, specials: number[], descriptions: Record<string, string>, binningMethod: "tree" | "equal_frequency" = "tree", maxBins: number = 10) {
+  function handleUploaded(data: UploadResponse, target: string, dateCol: string, specials: number[], descriptions: Record<string, string>, binningMethod: "tree" | "equal_frequency" = "tree", maxBins: number = 10) {
     setDataId(data.data_id);
     setTargetColumn(target);
     setSpecialValues(specials);
     setTotalRows(data.row_count);
     setAllColumns(data.columns.map((c) => c.name));
+    setDateColumn(dateCol);
     setFactorDescriptions(descriptions);
     setBinningMethod(binningMethod);
     setMaxBins(maxBins);
@@ -119,6 +125,7 @@ function App() {
       max_bins: maxBins,
       iv_threshold: 0,
       special_values: specials,
+      exclude_columns: dateCol ? [dateCol] : [],
     })
       .then((res) => {
         setUnivariateData(res);
@@ -204,6 +211,44 @@ function App() {
       setScorecardData(result);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Scorecard fitting failed.");
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  async function handleRunStability(
+    dateCol: string, bucketMonths: number, dateStart: string | null, dateEnd: string | null,
+    stressPeriod: string | null, benignPeriod: string | null,
+  ) {
+    if (!dataId || !targetColumn) return;
+    setLoading(true);
+    setError(null);
+    try {
+      const factorsList = [...refinedFactors.entries()].map(([name, data]) => {
+        const edges: number[] = [];
+        for (const b of data.bins) {
+          if (!b.is_special) {
+            if (b.lower !== null) edges.push(b.lower);
+            if (b.upper !== null) edges.push(b.upper);
+          }
+        }
+        return { factor_name: name, bin_edges: [...new Set(edges)].sort((a, b) => a - b) };
+      });
+      const result = await runStabilityAnalysis({
+        data_id: dataId, target_column: targetColumn, date_column: dateCol,
+        factors: factorsList, special_values: specialValues,
+        period: bucketMonths >= 12 ? "year" : bucketMonths >= 6 ? "half" : "quarter",
+        bucket_months: bucketMonths,
+        date_start: dateStart, date_end: dateEnd,
+        base_score: scorecardData?.scaling_offset !== undefined
+          ? Math.round(scorecardData.scaling_offset + scorecardData.scaling_factor * Math.log(50)) : 600,
+        base_odds: 50,
+        pdo: scorecardData ? Math.round(scorecardData.scaling_factor * Math.LN2) : 20,
+        stress_period: stressPeriod, benign_period: benignPeriod,
+      });
+      setStabilityData(result);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Stability analysis failed.");
     } finally {
       setLoading(false);
     }
@@ -537,10 +582,28 @@ function App() {
             factorMetrics={Object.fromEntries(refinedFactors)}
           />
           {scorecardData && (
-            <button className="primary-button" onClick={() => setStep("report")}>
-              Proceed to Report
+            <button className="primary-button" onClick={() => setStep("assessment")}>
+              Proceed to Model Assessment
             </button>
           )}
+        </>
+      )}
+
+      {step === "assessment" && dataId && targetColumn && scorecardData && (
+        <>
+          <ModelAssessmentPanel
+            scorecardData={scorecardData}
+            stabilityData={stabilityData}
+            onRunStability={handleRunStability}
+            loading={loading}
+            columns={allColumns}
+            targetColumn={targetColumn}
+            factorDescriptions={factorDescriptions}
+            initialDateColumn={dateColumn}
+          />
+          <button className="primary-button" onClick={() => setStep("report")}>
+            Proceed to Report
+          </button>
         </>
       )}
 
@@ -558,6 +621,7 @@ function App() {
           clusterOverrides={clusterOverrides}
           factorDescriptions={factorDescriptions}
           scorecardData={scorecardData}
+          stabilityData={stabilityData}
           specialValues={specialValues}
           columns={allColumns}
           config={{

@@ -1,9 +1,9 @@
 import { useRef, useState } from "react";
-import { uploadCsv, sampleCsvUrl, sampleMetadataUrl } from "../api/client";
+import { uploadCsv, loadSampleData, sampleCsvUrl } from "../api/client";
 import type { ColumnProfile, UploadResponse } from "../types/analysis";
 
 interface Props {
-  onUploaded: (data: UploadResponse, targetColumn: string, specialValues: number[], descriptions: Record<string, string>, binningMethod: "tree" | "equal_frequency", maxBins: number) => void;
+  onUploaded: (data: UploadResponse, targetColumn: string, dateColumn: string, specialValues: number[], descriptions: Record<string, string>, binningMethod: "tree" | "equal_frequency", maxBins: number) => void;
 }
 
 const TARGET_HINTS = [
@@ -29,6 +29,7 @@ export function UploadPanel({ onUploaded }: Props) {
   const fileRef = useRef<HTMLInputElement>(null);
   const [columns, setColumns] = useState<ColumnProfile[]>([]);
   const [targetColumn, setTargetColumn] = useState("");
+  const [dateColumnLocal, setDateColumnLocal] = useState("");
   const [uploadData, setUploadData] = useState<UploadResponse | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -52,6 +53,10 @@ export function UploadPanel({ onUploaded }: Props) {
       setUploadData(data);
       setColumns(data.columns);
       const detected = detectTarget(data.columns);
+      const dateCol = data.columns.find((c) =>
+        c.name.toLowerCase().includes("date") || c.name.toLowerCase().includes("snapshot") || c.name.toLowerCase().includes("period")
+      );
+      if (dateCol) setDateColumnLocal(dateCol.name);
       setTargetColumn(detected);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Upload failed.");
@@ -105,7 +110,7 @@ export function UploadPanel({ onUploaded }: Props) {
 
   function handleProceed() {
     if (uploadData && targetColumn) {
-      onUploaded(uploadData, targetColumn, specialValues, descriptions, binningMethod, maxBins);
+      onUploaded(uploadData, targetColumn, dateColumnLocal, specialValues, descriptions, binningMethod, maxBins);
     }
   }
 
@@ -114,6 +119,7 @@ export function UploadPanel({ onUploaded }: Props) {
   );
 
   const [showTargetPicker, setShowTargetPicker] = useState(false);
+  const [showDatePicker, setShowDatePicker] = useState(false);
 
   const columnsWithSpecials = columns.filter(
     (c) => Object.keys(c.special_value_counts).length > 0,
@@ -143,11 +149,31 @@ export function UploadPanel({ onUploaded }: Props) {
               : "Upload Metadata CSV"}
             <input type="file" accept=".csv" onChange={handleMetadataUpload} hidden />
           </label>
+          <button className="primary-button" disabled={loading} onClick={async () => {
+            setLoading(true);
+            setError(null);
+            try {
+              const { uploadResponse, descriptions: desc } = await loadSampleData();
+              setUploadData(uploadResponse);
+              setColumns(uploadResponse.columns);
+              setDescriptions(desc);
+              const detected = detectTarget(uploadResponse.columns);
+              setTargetColumn(detected);
+              const dateCol = uploadResponse.columns.find((c) =>
+                c.name.toLowerCase().includes("date") || c.name.toLowerCase().includes("snapshot")
+              );
+              if (dateCol) setDateColumnLocal(dateCol.name);
+              setFileName("sample_factors.csv");
+            } catch (err) {
+              setError(err instanceof Error ? err.message : "Failed to load sample data.");
+            } finally {
+              setLoading(false);
+            }
+          }}>
+            Use Sample Data
+          </button>
           <a className="link-button" href={sampleCsvUrl()} download>
-            Sample data
-          </a>
-          <a className="link-button" href={sampleMetadataUrl()} download>
-            Sample metadata
+            Download sample
           </a>
         </div>
 
@@ -210,6 +236,43 @@ export function UploadPanel({ onUploaded }: Props) {
                       />
                       {c.name}
                       <span className="target-option-meta">{c.unique_count} unique</span>
+                    </label>
+                  ))}
+                </div>
+              )}
+            </div>
+            <div className="config-field">
+              <label>Date column:</label>
+              {!showDatePicker ? (
+                <div className="target-detected">
+                  {dateColumnLocal ? (
+                    <>
+                      <span className="target-name">{dateColumnLocal}</span>
+                      <button className="link-button" onClick={() => setShowDatePicker(true)}>
+                        Change
+                      </button>
+                    </>
+                  ) : (
+                    <>
+                      <span className="target-none">None</span>
+                      <button className="link-button" onClick={() => setShowDatePicker(true)}>
+                        Select
+                      </button>
+                    </>
+                  )}
+                </div>
+              ) : (
+                <div className="target-picker">
+                  <label className={`target-option ${dateColumnLocal === "" ? "selected" : ""}`}>
+                    <input type="radio" name="date" checked={dateColumnLocal === ""}
+                      onChange={() => { setDateColumnLocal(""); setShowDatePicker(false); }} />
+                    None
+                  </label>
+                  {columns.filter((c) => c.name !== targetColumn).map((c) => (
+                    <label key={c.name} className={`target-option ${dateColumnLocal === c.name ? "selected" : ""}`}>
+                      <input type="radio" name="date" checked={dateColumnLocal === c.name}
+                        onChange={() => { setDateColumnLocal(c.name); setShowDatePicker(false); }} />
+                      {c.name}
                     </label>
                   ))}
                 </div>

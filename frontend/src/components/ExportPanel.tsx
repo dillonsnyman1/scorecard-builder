@@ -9,7 +9,7 @@ import {
   XAxis,
   YAxis,
 } from "recharts";
-import { exportShortlist, runStabilityAnalysis } from "../api/client";
+import { exportShortlist } from "../api/client";
 import { WoeChart } from "./WoeChart";
 import type { BinDetail, ExportFactor, FactorAnalysis, FactorThresholds, ScorecardResponse, StabilityResponse } from "../types/analysis";
 import type { ClusterOverride } from "./ClusterShortlist";
@@ -35,6 +35,7 @@ interface Props {
   clusterOverrides: Record<string, ClusterOverride>;
   factorDescriptions: Record<string, string>;
   scorecardData?: ScorecardResponse | null;
+  stabilityData?: StabilityResponse | null;
   onExportScoredData?: () => void;
   config?: {
     binningMethod: string;
@@ -154,53 +155,14 @@ export function ExportPanel({
   clusterOverrides,
   factorDescriptions,
   scorecardData,
+  stabilityData,
   onExportScoredData,
   config,
-  specialValues,
-  columns,
 }: Props) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [expandedFactor, setExpandedFactor] = useState<string | null>(null);
-  const [dateColumn, setDateColumn] = useState("");
-  const [periodType, setPeriodType] = useState("quarter");
-  const [stabilityData, setStabilityData] = useState<StabilityResponse | null>(null);
-  const [stabilityLoading, setStabilityLoading] = useState(false);
-  const [stressPeriod, setStressPeriod] = useState("");
-  const [benignPeriod, setBenignPeriod] = useState("");
 
-  async function runStability(overrideStress?: string, overrideBenign?: string) {
-    if (!dateColumn) return;
-    setStabilityLoading(true);
-    try {
-      const factorsList = factors.map((f) => {
-        const edges: number[] = [];
-        for (const b of f.bins) {
-          if (!b.is_special) {
-            if (b.lower !== null) edges.push(b.lower);
-            if (b.upper !== null) edges.push(b.upper);
-          }
-        }
-        return { factor_name: f.factor_name, bin_edges: [...new Set(edges)].sort((a, b) => a - b) };
-      });
-      const result = await runStabilityAnalysis({
-        data_id: dataId, target_column: targetColumn, date_column: dateColumn,
-        factors: factorsList, special_values: specialValues, period: periodType,
-        bucket_months: periodType === "year" ? 12 : periodType === "half" ? 6 : 3,
-        date_start: null, date_end: null,
-        base_score: scorecardData?.scaling_offset !== undefined
-          ? Math.round(scorecardData.scaling_offset + scorecardData.scaling_factor * Math.log(50)) : 600,
-        base_odds: 50, pdo: scorecardData ? Math.round(scorecardData.scaling_factor * Math.LN2) : 20,
-        stress_period: (overrideStress ?? stressPeriod) || null,
-        benign_period: (overrideBenign ?? benignPeriod) || null,
-      });
-      setStabilityData(result);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Stability analysis failed.");
-    } finally {
-      setStabilityLoading(false);
-    }
-  }
 
   const finalFactors = new Set(factors.map((f) => f.factor_name));
   const audit = buildAudit(
@@ -495,246 +457,78 @@ export function ExportPanel({
         </div>
       </details>
 
-      <details className="collapsible-section">
-        <summary>Stability Analysis (PSI)</summary>
-        <div style={{ padding: 18 }}>
-          <p style={{ margin: "0 0 12px", fontSize: 13, color: "var(--text)" }}>
-            Assess whether the applicant population and score distribution have shifted
-            across time periods. PSI measures distribution change, not default rate movement.
-          </p>
-          <div className="threshold-fields" style={{ marginBottom: 16 }}>
-            <div className="threshold-field">
-              <label>Date column</label>
-              <select value={dateColumn} onChange={(e) => setDateColumn(e.target.value)}>
-                <option value="">Select...</option>
-                {columns.filter((c) => c !== targetColumn).map((c) => (
-                  <option key={c} value={c}>{c}</option>
-                ))}
-              </select>
+      {stabilityData && (
+        <details className="collapsible-section">
+          <summary>Stability & Cyclicality Summary</summary>
+          <div style={{ padding: 18 }}>
+            <div className="table-wrapper" style={{ marginBottom: 16 }}>
+              <table className="data-table compact">
+                <thead>
+                  <tr>
+                    <th>Period</th>
+                    <th>Obs</th>
+                    <th>ODR</th>
+                    <th>Model PD</th>
+                    <th>Mean Score</th>
+                    <th>PSI</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {stabilityData.periods.map((p) => (
+                    <tr key={p.period}>
+                      <td className="mono">{p.period}</td>
+                      <td>{p.obs_count.toLocaleString()}</td>
+                      <td className="mono">{(p.event_rate * 100).toFixed(2)}%</td>
+                      <td className="mono">{p.mean_model_pd !== null ? (p.mean_model_pd * 100).toFixed(2) + "%" : "-"}</td>
+                      <td className="mono">{p.mean_score !== null ? p.mean_score.toFixed(1) : "-"}</td>
+                      <td className={`mono ${p.psi !== null && p.psi > 0.25 ? "points-negative" : p.psi !== null && p.psi > 0.1 ? "sig-mid" : ""}`}>
+                        {p.psi !== null ? p.psi.toFixed(4) : "-"}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
             </div>
-            <div className="threshold-field">
-              <label>Period</label>
-              <div className="method-toggle">
-                <button className={`method-btn ${periodType === "quarter" ? "active" : ""}`}
-                  onClick={() => setPeriodType("quarter")}>Quarter</button>
-                <button className={`method-btn ${periodType === "half" ? "active" : ""}`}
-                  onClick={() => setPeriodType("half")}>Half-Year</button>
-                <button className={`method-btn ${periodType === "year" ? "active" : ""}`}
-                  onClick={() => setPeriodType("year")}>Year</button>
+            {Object.keys(stabilityData.cyclicality).length > 0 && (
+              <div className="table-wrapper">
+                <table className="data-table compact">
+                  <thead>
+                    <tr><th>Cyclicality Method</th><th>Value</th><th>Interpretation</th></tr>
+                  </thead>
+                  <tbody>
+                    {stabilityData.cyclicality.log_regression !== undefined && (
+                      <tr>
+                        <td>Log-log regression</td>
+                        <td className="mono">{stabilityData.cyclicality.log_regression.toFixed(4)}</td>
+                        <td>{Math.abs(stabilityData.cyclicality.log_regression) > 0.8 ? "Highly PIT" :
+                          Math.abs(stabilityData.cyclicality.log_regression) > 0.5 ? "Moderately cyclical" :
+                          Math.abs(stabilityData.cyclicality.log_regression) > 0.2 ? "Low cyclicality" : "Near TTC"}</td>
+                      </tr>
+                    )}
+                    {stabilityData.cyclicality.two_point !== undefined && (
+                      <tr>
+                        <td>Two-point{stabilityData.cyclicality.two_point_periods ? ` (${stabilityData.cyclicality.two_point_periods})` : ""}</td>
+                        <td className="mono">{stabilityData.cyclicality.two_point.toFixed(4)}</td>
+                        <td>{Math.abs(stabilityData.cyclicality.two_point) > 1 ? "Amplifies cycle" :
+                          Math.abs(stabilityData.cyclicality.two_point) > 0.5 ? "Passes through" :
+                          Math.abs(stabilityData.cyclicality.two_point) > 0 ? "Dampens cycle" : "No sensitivity"}</td>
+                      </tr>
+                    )}
+                    {stabilityData.cyclicality.cv_model_pd !== undefined && (
+                      <tr>
+                        <td>CV of model PD</td>
+                        <td className="mono">{stabilityData.cyclicality.cv_model_pd.toFixed(4)}</td>
+                        <td>{stabilityData.cyclicality.cv_model_pd > 0.3 ? "High dispersion" :
+                          stabilityData.cyclicality.cv_model_pd > 0.15 ? "Moderate" : "Low dispersion"}</td>
+                      </tr>
+                    )}
+                  </tbody>
+                </table>
               </div>
-            </div>
-            <button className="primary-button" disabled={!dateColumn || stabilityLoading}
-              onClick={() => runStability()}
-            >
-              {stabilityLoading ? "Analysing..." : "Run Analysis"}
-            </button>
+            )}
           </div>
-
-          {stabilityData && (
-            <>
-              <div className="table-wrapper" style={{ marginBottom: 16 }}>
-                <table className="data-table compact">
-                  <thead>
-                    <tr>
-                      <th>Period</th>
-                      <th>Observations</th>
-                      <th>Events</th>
-                      <th>Event Rate</th>
-                      <th>Mean Score</th>
-                      <th>PSI</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {stabilityData.periods.map((p) => (
-                      <tr key={p.period}>
-                        <td className="mono">{p.period}</td>
-                        <td>{p.obs_count.toLocaleString()}</td>
-                        <td>{p.event_count.toLocaleString()}</td>
-                        <td className="mono">{(p.event_rate * 100).toFixed(2)}%</td>
-                        <td className="mono">{p.mean_score !== null ? p.mean_score.toFixed(1) : "-"}</td>
-                        <td className={`mono ${p.psi !== null && p.psi > 0.25 ? "points-negative" : p.psi !== null && p.psi > 0.1 ? "sig-mid" : ""}`}>
-                          {p.psi !== null ? p.psi.toFixed(4) : "-"}
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-
-              {stabilityData.overall_psi !== null && (
-                <p style={{ margin: "0 0 12px", fontSize: 13, color: "var(--text)" }}>
-                  Overall PSI (latest period vs full population): <strong
-                    className={stabilityData.overall_psi > 0.25 ? "points-negative" : stabilityData.overall_psi > 0.1 ? "sig-mid" : ""}
-                  >{stabilityData.overall_psi.toFixed(4)}</strong>
-                  {stabilityData.overall_psi < 0.1 && " - stable"}
-                  {stabilityData.overall_psi >= 0.1 && stabilityData.overall_psi < 0.25 && " - moderate shift"}
-                  {stabilityData.overall_psi >= 0.25 && " - significant shift"}
-                </p>
-              )}
-
-              {stabilityData.factor_stability.length > 0 && (
-                <>
-                  <h4 style={{ margin: "0 0 8px", fontSize: 14 }}>Factor IV Stability by Period</h4>
-                  <div className="table-wrapper">
-                    <table className="data-table compact">
-                      <thead>
-                        <tr>
-                          <th>Factor</th>
-                          {stabilityData.periods.map((p) => (
-                            <th key={p.period} className="mono">{p.period}</th>
-                          ))}
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {stabilityData.factor_stability.map((fs) => (
-                          <tr key={fs.factor_name}>
-                            <td>{fs.factor_name}</td>
-                            {stabilityData.periods.map((p) => {
-                              const pd = fs.periods.find((fp) => fp.period === p.period);
-                              return <td key={p.period} className="mono">{pd ? pd.iv.toFixed(4) : "-"}</td>;
-                            })}
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
-                </>
-              )}
-            </>
-          )}
-        </div>
-      </details>
-
-      <details className="collapsible-section">
-        <summary>Cyclicality Analysis</summary>
-        <div style={{ padding: 18 }}>
-          <p style={{ margin: "0 0 12px", fontSize: 13, color: "var(--text)" }}>
-            Measures how sensitive the model's PD predictions are to changes in the
-            Observed Default Rate (ODR) across time periods. This is distinct from population
-            stability - cyclicality asks whether the model's risk ranking moves with the
-            economic cycle.
-          </p>
-
-          {!stabilityData && (
-            <p style={{ margin: 0, fontSize: 13, color: "var(--text)", fontStyle: "italic" }}>
-              Run the stability analysis above first to generate cyclicality measures.
-            </p>
-          )}
-
-          {stabilityData && (
-            <>
-              <div className="table-wrapper" style={{ marginBottom: 16 }}>
-                <table className="data-table compact">
-                  <thead>
-                    <tr>
-                      <th>Period</th>
-                      <th>ODR</th>
-                      <th>Mean Model PD</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {stabilityData.periods.map((p) => (
-                      <tr key={p.period}>
-                        <td className="mono">{p.period}</td>
-                        <td className="mono">{(p.event_rate * 100).toFixed(2)}%</td>
-                        <td className="mono">{p.mean_model_pd !== null ? (p.mean_model_pd * 100).toFixed(2) + "%" : "-"}</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-
-              <ResponsiveContainer width="100%" height={250}>
-                <BarChart data={stabilityData.periods.map((p) => ({
-                  period: p.period,
-                  event_rate: p.event_rate * 100,
-                }))} margin={{ top: 8, right: 16, bottom: 8, left: 0 }}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" />
-                  <XAxis dataKey="period" tick={{ fontSize: 11 }} angle={-30} textAnchor="end" height={50} />
-                  <YAxis tick={{ fontSize: 11 }} tickFormatter={(v: number) => `${v.toFixed(0)}%`} />
-                  <Tooltip formatter={(v) => `${Number(v).toFixed(2)}%`} />
-                  <Bar dataKey="event_rate" name="ODR %" radius={[3, 3, 0, 0]}>
-                    {stabilityData.periods.map((_, i) => (
-                      <Cell key={i} fill="var(--accent)" />
-                    ))}
-                  </Bar>
-                </BarChart>
-              </ResponsiveContainer>
-
-              {Object.keys(stabilityData.cyclicality).length > 0 && (
-                <>
-                  <h4 style={{ margin: "16px 0 4px", fontSize: 14 }}>Cyclicality Measures</h4>
-                  <div className="threshold-fields" style={{ marginBottom: 12 }}>
-                    <div className="threshold-field">
-                      <label>Benign period</label>
-                      <select value={benignPeriod} onChange={(e) => {
-                        setBenignPeriod(e.target.value);
-                        runStability(undefined, e.target.value);
-                      }}>
-                        <option value="">Auto (lowest ODR)</option>
-                        {stabilityData.periods.map((p) => (
-                          <option key={p.period} value={p.period}>{p.period} (ODR {(p.event_rate * 100).toFixed(1)}%)</option>
-                        ))}
-                      </select>
-                    </div>
-                    <div className="threshold-field">
-                      <label>Stress period</label>
-                      <select value={stressPeriod} onChange={(e) => {
-                        setStressPeriod(e.target.value);
-                        runStability(e.target.value, undefined);
-                      }}>
-                        <option value="">Auto (highest ODR)</option>
-                        {stabilityData.periods.map((p) => (
-                          <option key={p.period} value={p.period}>{p.period} (ODR {(p.event_rate * 100).toFixed(1)}%)</option>
-                        ))}
-                      </select>
-                    </div>
-                  </div>
-                  <div className="table-wrapper">
-                    <table className="data-table compact">
-                      <thead>
-                        <tr>
-                          <th>Method</th>
-                          <th>Value</th>
-                          <th>Interpretation</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {stabilityData.cyclicality.log_regression !== undefined && (
-                          <tr>
-                            <td>Log-log regression</td>
-                            <td className="mono">{stabilityData.cyclicality.log_regression.toFixed(4)}</td>
-                            <td>{Math.abs(stabilityData.cyclicality.log_regression) > 0.8 ? "Highly PIT" :
-                              Math.abs(stabilityData.cyclicality.log_regression) > 0.5 ? "Moderately cyclical" :
-                              Math.abs(stabilityData.cyclicality.log_regression) > 0.2 ? "Low cyclicality" : "Near TTC"}</td>
-                          </tr>
-                        )}
-                        {stabilityData.cyclicality.two_point !== undefined && (
-                          <tr>
-                            <td>Two-point Delta PD / Delta ODR{stabilityData.cyclicality.two_point_periods ? ` (${stabilityData.cyclicality.two_point_periods})` : ""}</td>
-                            <td className="mono">{stabilityData.cyclicality.two_point.toFixed(4)}</td>
-                            <td>{Math.abs(stabilityData.cyclicality.two_point) > 1 ? "Amplifies cycle" :
-                              Math.abs(stabilityData.cyclicality.two_point) > 0.5 ? "Passes through cycle" :
-                              Math.abs(stabilityData.cyclicality.two_point) > 0 ? "Dampens cycle" : "No sensitivity"}</td>
-                          </tr>
-                        )}
-                        {stabilityData.cyclicality.cv_model_pd !== undefined && (
-                          <tr>
-                            <td>CV of model PD</td>
-                            <td className="mono">{stabilityData.cyclicality.cv_model_pd.toFixed(4)}</td>
-                            <td>{stabilityData.cyclicality.cv_model_pd > 0.3 ? "High dispersion" :
-                              stabilityData.cyclicality.cv_model_pd > 0.15 ? "Moderate dispersion" : "Low dispersion"}</td>
-                          </tr>
-                        )}
-                      </tbody>
-                    </table>
-                  </div>
-                </>
-              )}
-            </>
-          )}
-        </div>
-      </details>
+        </details>
+      )}
 
       <details className="collapsible-section">
         <summary>Factor Audit Report ({allFactors.length} factors)</summary>

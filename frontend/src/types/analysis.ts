@@ -61,6 +61,7 @@ export interface UnivariateRequest {
   max_bins: number;
   iv_threshold: number;
   special_values: number[];
+  exclude_columns: string[];
 }
 
 export interface ClusterFactor {
@@ -121,18 +122,19 @@ export interface ExportRequest {
   format: "csv" | "json";
 }
 
-export type Step = "upload" | "univariate" | "cluster" | "refine" | "scorecard" | "report";
+export type Step = "upload" | "univariate" | "cluster" | "refine" | "scorecard" | "assessment" | "report";
 
 export const STEP_LABELS: Record<Step, string> = {
   upload: "Upload",
-  univariate: "Univariate Analysis",
-  cluster: "Factor Clustering",
-  refine: "Bin Refinement",
+  univariate: "Univariate",
+  cluster: "Clustering",
+  refine: "Refinement",
   scorecard: "Scorecard",
+  assessment: "Assessment",
   report: "Report",
 };
 
-export const STEP_ORDER: Step[] = ["upload", "univariate", "cluster", "refine", "scorecard", "report"];
+export const STEP_ORDER: Step[] = ["upload", "univariate", "cluster", "refine", "scorecard", "assessment", "report"];
 
 export type SelectionMethod = "all" | "forward" | "backward" | "stepwise" | "lasso";
 
@@ -238,6 +240,8 @@ export interface PeriodMetrics {
   event_rate: number;
   mean_score: number | null;
   mean_model_pd: number | null;
+  gini: number | null;
+  gini_se: number | null;
   psi: number | null;
 }
 
@@ -257,6 +261,7 @@ export interface StabilityResponse {
   periods: PeriodMetrics[];
   factor_stability: FactorStability[];
   overall_psi: number | null;
+  factor_psi: Array<{ factor_name: string; periods: Array<{ period: string; psi_yoy: number | null; psi_vs_latest: number | null }> }>;
   cyclicality: CyclicalityResults;
   date_min: string | null;
   date_max: string | null;

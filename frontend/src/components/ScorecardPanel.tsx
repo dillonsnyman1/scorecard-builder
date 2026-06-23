@@ -1,78 +1,6 @@
 import { useState } from "react";
-import {
-  Bar,
-  BarChart,
-  CartesianGrid,
-  Cell,
-  ResponsiveContainer,
-  Tooltip,
-  XAxis,
-  YAxis,
-} from "recharts";
 import type { BinDetail, ScorecardResponse, SelectionMethod } from "../types/analysis";
 
-type WeightMethod = "variance" | "coefficient" | "range";
-
-function EffectiveWeights({ scorecardData }: { scorecardData: ScorecardResponse }) {
-  const [method, setMethod] = useState<WeightMethod>("range");
-
-  const weights = scorecardData.factors.map((f) => {
-    const pts = f.bins.map((b) => b.points);
-    const woeVals = f.bins.filter((b) => !b.group.startsWith("S")).map((b) => b.woe);
-    const woeStd = woeVals.length > 1
-      ? Math.sqrt(woeVals.reduce((s, w) => s + (w - woeVals.reduce((a, b) => a + b, 0) / woeVals.length) ** 2, 0) / woeVals.length)
-      : 0;
-    return {
-      factor_name: f.factor_name,
-      absCoef: Math.abs(f.coefficient),
-      variance: Math.abs(f.coefficient) * woeStd,
-      range: Math.max(...pts) - Math.min(...pts),
-    };
-  });
-
-  const totalCoef = weights.reduce((s, w) => s + w.absCoef, 0) || 1;
-  const totalVariance = weights.reduce((s, w) => s + w.variance, 0) || 1;
-  const totalRange = weights.reduce((s, w) => s + w.range, 0) || 1;
-
-  const data = weights.map((w) => ({
-    name: w.factor_name,
-    pct: method === "coefficient" ? w.absCoef / totalCoef * 100
-      : method === "variance" ? w.variance / totalVariance * 100
-      : w.range / totalRange * 100,
-  })).sort((a, b) => b.pct - a.pct);
-
-  return (
-    <details className="collapsible-section">
-      <summary>Effective Weights</summary>
-      <div style={{ padding: 18 }}>
-        <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 16 }}>
-          <span style={{ fontSize: 13, color: "var(--text)" }}>Weighting method:</span>
-          <div className="method-toggle">
-            <button className={`method-btn ${method === "range" ? "active" : ""}`}
-              onClick={() => setMethod("range")}>Points Range</button>
-            <button className={`method-btn ${method === "coefficient" ? "active" : ""}`}
-              onClick={() => setMethod("coefficient")}>Coefficient</button>
-            <button className={`method-btn ${method === "variance" ? "active" : ""}`}
-              onClick={() => setMethod("variance")}>Score Variance</button>
-          </div>
-        </div>
-        <ResponsiveContainer width="100%" height={Math.max(200, data.length * 32)}>
-          <BarChart data={data} layout="vertical" margin={{ top: 0, right: 24, bottom: 0, left: 140 }}>
-            <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" horizontal={false} />
-            <XAxis type="number" tick={{ fontSize: 11 }} tickFormatter={(v: number) => `${v.toFixed(0)}%`} />
-            <YAxis type="category" dataKey="name" tick={{ fontSize: 12 }} width={130} />
-            <Tooltip formatter={(v) => `${Number(v).toFixed(1)}%`} />
-            <Bar dataKey="pct" name="Weight" radius={[0, 3, 3, 0]}>
-              {data.map((_, i) => (
-                <Cell key={i} fill="var(--accent)" />
-              ))}
-            </Bar>
-          </BarChart>
-        </ResponsiveContainer>
-      </div>
-    </details>
-  );
-}
 
 interface Props {
   scorecardData: ScorecardResponse | null;
@@ -463,32 +391,6 @@ export function ScorecardPanel({
               </div>
             </div>
           </details>
-
-          <details className="collapsible-section">
-            <summary>Score Distribution</summary>
-            <div style={{ padding: 18 }}>
-              <ResponsiveContainer width="100%" height={300}>
-                <BarChart data={scorecardData.score_distribution} margin={{ top: 8, right: 16, bottom: 8, left: 0 }}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" />
-                  <XAxis dataKey="band" tick={{ fontSize: 11 }} angle={-30} textAnchor="end" height={60} />
-                  <YAxis tick={{ fontSize: 11 }} />
-                  <Tooltip
-                    formatter={(value, name) => {
-                      if (name === "pct") return `${Number(value).toFixed(1)}%`;
-                      return Number(value).toLocaleString();
-                    }}
-                  />
-                  <Bar dataKey="count" name="Count" radius={[3, 3, 0, 0]}>
-                    {scorecardData.score_distribution.map((_, i) => (
-                      <Cell key={i} fill="var(--accent)" />
-                    ))}
-                  </Bar>
-                </BarChart>
-              </ResponsiveContainer>
-            </div>
-          </details>
-
-          <EffectiveWeights scorecardData={scorecardData} />
 
           <details className="collapsible-section">
             <summary>Scorecard Master Table</summary>

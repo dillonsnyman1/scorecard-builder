@@ -28,17 +28,52 @@ def inject_special(arr: np.ndarray, frac: float, value: float = -999.0) -> np.nd
 
 
 # ---------------------------------------------------------------------------
-# Core factors (strong-to-moderate predictive power)
+# Dates first (factors depend on year)
+# ---------------------------------------------------------------------------
+years = pd.to_datetime([f"{y}-06-01" for y in range(2005, 2016)])
+dates = np.random.choice(years, n)
+obs_year = np.array([pd.Timestamp(d).year for d in dates])
+
+# ---------------------------------------------------------------------------
+# Year-dependent adjustments for realistic population drift
+# ---------------------------------------------------------------------------
+# Income grows ~3% pa from 2005 baseline
+income_multiplier = 1 + 0.03 * (obs_year - 2005)
+# Interest rates: higher pre-GFC, cut post-GFC, slowly normalising
+rate_shift = {2005: 2.0, 2006: 2.5, 2007: 3.0, 2008: 2.0, 2009: -2.0,
+              2010: -3.0, 2011: -2.5, 2012: -2.5, 2013: -2.0, 2014: -1.5, 2015: -1.0}
+rate_adj = np.array([rate_shift.get(y, 0) for y in obs_year])
+# Credit utilisation: higher during stress
+util_shift = {2005: 0, 2006: 0, 2007: 0.03, 2008: 0.08, 2009: 0.06,
+              2010: 0.03, 2011: 0.01, 2012: 0, 2013: -0.01, 2014: -0.01, 2015: 0}
+util_adj = np.array([util_shift.get(y, 0) for y in obs_year])
+# DTI: looser lending pre-crisis, tighter post
+dti_shift = {2005: 0.02, 2006: 0.03, 2007: 0.05, 2008: 0.04, 2009: -0.02,
+             2010: -0.03, 2011: -0.02, 2012: -0.01, 2013: 0, 2014: 0, 2015: 0}
+dti_adj = np.array([dti_shift.get(y, 0) for y in obs_year])
+# Loan amounts inflate over time
+loan_multiplier = 1 + 0.04 * (obs_year - 2005)
+# Delinquency: more during stress
+delinq_shift = {2005: 0, 2006: 0, 2007: 0.1, 2008: 0.4, 2009: 0.3,
+                2010: 0.15, 2011: 0.05, 2012: 0, 2013: -0.05, 2014: -0.05, 2015: 0}
+delinq_adj = np.array([delinq_shift.get(y, 0) for y in obs_year])
+# LTV: higher pre-crisis (looser lending), lower post
+ltv_shift = {2005: 0.02, 2006: 0.03, 2007: 0.05, 2008: 0.03, 2009: -0.03,
+             2010: -0.05, 2011: -0.04, 2012: -0.03, 2013: -0.02, 2014: -0.01, 2015: 0}
+ltv_adj = np.array([ltv_shift.get(y, 0) for y in obs_year])
+
+# ---------------------------------------------------------------------------
+# Core factors (with year-dependent shifts applied)
 # ---------------------------------------------------------------------------
 age = np.random.normal(40, 12, n).clip(18, 75)
-income = np.random.lognormal(10.5, 0.6, n).clip(15000, 500000)
-debt_to_income = np.random.beta(2, 5, n) * 0.8
+income = (np.random.lognormal(10.5, 0.6, n) * income_multiplier).clip(15000, 500000)
+debt_to_income = (np.random.beta(2, 5, n) * 0.8 + dti_adj).clip(0, 0.95)
 months_employed = np.random.exponential(48, n).clip(0, 360)
-credit_utilisation = np.random.beta(2, 3, n)
+credit_utilisation = (np.random.beta(2, 3, n) + util_adj).clip(0, 1)
 num_credit_lines = np.random.poisson(5, n).clip(0, 20).astype(float)
-delinquency_count = np.random.poisson(0.5, n).clip(0, 10).astype(float)
-loan_amount = np.random.lognormal(10, 0.8, n).clip(1000, 200000)
-interest_rate = np.random.uniform(3, 25, n)
+delinquency_count = np.random.poisson(0.5 + np.maximum(delinq_adj, 0), n).clip(0, 10).astype(float)
+loan_amount = (np.random.lognormal(10, 0.8, n) * loan_multiplier).clip(1000, 200000)
+interest_rate = (np.random.uniform(3, 25, n) + rate_adj).clip(1, 30)
 months_since_last_delinq = np.random.exponential(24, n).clip(0, 120)
 revolving_balance = np.random.lognormal(8, 1.2, n).clip(0, 100000)
 total_accounts = np.random.poisson(8, n).clip(1, 30).astype(float)
@@ -49,13 +84,13 @@ inquiries_last_6m = np.random.poisson(1.5, n).clip(0, 15).astype(float)
 payment_to_income = np.random.beta(2, 8, n) * 0.6
 total_debt = income * debt_to_income * np.random.uniform(0.8, 1.2, n)
 savings_balance = np.random.lognormal(9, 1.5, n).clip(0, 500000)
-loan_to_value = np.random.beta(3, 2, n)
+loan_to_value = (np.random.beta(3, 2, n) + ltv_adj).clip(0.1, 1)
 
 # ---------------------------------------------------------------------------
 # Target variable
 # ---------------------------------------------------------------------------
 log_odds = (
-    -3.0
+    -5.5
     + 0.015 * (age - 40)
     - 0.4 * np.log(income / 50000)
     + 1.8 * debt_to_income
@@ -76,31 +111,22 @@ log_odds = (
     + 0.8 * loan_to_value
 )
 # ---------------------------------------------------------------------------
-# Dates spanning ~4 years with cyclical economic effect on default rates
+# Cyclical adjustment on default rates
 # ---------------------------------------------------------------------------
-months = pd.date_range("2019-01-01", "2023-12-01", freq="MS")
-dates = np.random.choice(months, n)
-
-# Cyclical adjustment simulating an economic cycle:
-# 2019: stable pre-Covid
-# 2020: sharp stress (Covid)
-# 2021: recovery
-# 2022: benign
-# 2023: mild stress (rate hiking cycle)
-cycle_effect = np.zeros(n)
-for i in range(n):
-    y = pd.Timestamp(dates[i]).year
-    m = pd.Timestamp(dates[i]).month
-    if y == 2019:
-        cycle_effect[i] = 0.05
-    elif y == 2020:
-        cycle_effect[i] = 0.3 + 0.2 * (m / 12)
-    elif y == 2021:
-        cycle_effect[i] = 0.15 - 0.15 * (m / 12)
-    elif y == 2022:
-        cycle_effect[i] = -0.1
-    else:
-        cycle_effect[i] = -0.05 + 0.15 * (m / 12)
+cycle_map = {
+    2005: -0.15,
+    2006: -0.1,
+    2007: 0.15,
+    2008: 0.5,
+    2009: 0.45,
+    2010: 0.2,
+    2011: 0.05,
+    2012: -0.05,
+    2013: -0.1,
+    2014: -0.1,
+    2015: -0.05,
+}
+cycle_effect = np.array([cycle_map.get(y, 0.0) for y in obs_year])
 
 prob = 1 / (1 + np.exp(-(log_odds + cycle_effect)))
 default_flag = (np.random.uniform(0, 1, n) < prob).astype(int)

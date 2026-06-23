@@ -111,8 +111,11 @@ def univariate_analysis(req: UnivariateRequest) -> UnivariateResponse:
     if req.target_column not in df.columns:
         raise HTTPException(status_code=422, detail=f"Target column '{req.target_column}' not found.")
 
+    exclude = set(req.exclude_columns)
+    df_analysis = df.drop(columns=[c for c in exclude if c in df.columns and c != req.target_column], errors="ignore")
+
     results = analyze_all_factors(
-        df, req.target_column, req.max_bins, req.binning_method.value, req.special_values
+        df_analysis, req.target_column, req.max_bins, req.binning_method.value, req.special_values
     )
 
     target = df[req.target_column].values.astype(float)

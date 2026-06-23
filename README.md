@@ -20,7 +20,7 @@ through to a final points-based scorecard with full audit trail.
 
 ## What It Does
 
-The tool guides the user through a 6-step scorecard development workflow:
+The tool guides the user through a 7-step scorecard development workflow:
 
 ### Step 1: Upload
 
@@ -30,8 +30,13 @@ descriptions. Configure special values (e.g. -999, 9999) that should be
 treated as sentinels rather than valid data points.
 
 The tool auto-detects the target variable from common naming patterns
-(default_flag, target, bad, etc.) and profiles every column for missing
-values, special values, data types and unique counts.
+(default_flag, target, bad, etc.) and the date column from naming
+patterns (date, snapshot, period). Both the target and date columns
+are excluded from the factor analysis. The date column is used later
+for stability and cyclicality analysis in the Model Assessment step.
+All columns are profiled for missing values, special values, data
+types and unique counts. A "Use Sample Data" button loads the
+included synthetic dataset with metadata in one click.
 
 ### Step 2: Univariate Analysis
 
@@ -181,17 +186,44 @@ Anomalous (positive) coefficients are flagged with a warning - with the
 WoE convention used (`ln(% non-events / % events)`), all coefficients
 should be negative.
 
-### Step 6: Report
+### Step 6: Model Assessment
+
+Automated assessment of the fitted scorecard, run against the full
+date range of the dataset. Requires a date column to have been
+identified at upload. Analysis runs automatically on entering this
+step.
+
+- **Model metrics summary**: AUC, GINI, KS statistic, score range,
+  factor count
+- **GINI over time**: GINI and GINI standard error (Hanley-McNeil
+  approximation) per snapshot period, with line chart and SE bands
+- **Score distribution**: histogram of scores across the dataset
+- **Effective weights**: factor contribution analysis with three
+  perspectives (points range, coefficient magnitude, score variance)
+- **Stability Analysis (PSI)**:
+  - Score PSI year-on-year (each period vs previous)
+  - Factor IV by period (heatmap coloured by IV thresholds)
+  - Factor PSI year-on-year (bin distribution shift from previous
+    period, using refined bin edges)
+  - Factor PSI vs latest period (each historic period compared to
+    the most recent snapshot)
+  - Interpretation thresholds documented inline
+- **Cyclicality Analysis**:
+  - ODR vs Model PD dual-line chart
+  - Three cyclicality measures: log-log regression, two-point
+    Delta PD / Delta ODR (user-selectable benign/stress periods),
+    CV of model PD
+  - Interpretation thresholds documented inline
+
+### Step 7: Report
 
 Comprehensive output and audit trail:
 
-- **Score Distribution**: histogram of scores across the dataset
 - **Factor Selection Log**: stepwise add/remove decisions with p-values
 - **Configuration Summary**: all settings used (binning, thresholds,
   clustering, PDO) for reproducibility
-- **Stability / Cyclicality Analysis**: assess how default rates, score
-  distributions, and factor predictive power vary across time periods
-  (see below)
+- **Stability & Cyclicality Summary**: read-only summary of results
+  from the Model Assessment step
 - **Factor Audit Report**: every input factor listed with its status
   (Shortlisted/Rejected), the stage at which the decision was made,
   and the reason - including user overrides with justifications
@@ -321,11 +353,22 @@ robust through the cycle.
 
 **Population Stability Index (PSI)** as implemented here:
 
-1. Divide the base (first) period's score distribution into 10 bins
-   using decile percentiles
-2. For each subsequent period, count the proportion of observations
-   falling into each of those same bins
-3. Compute:
+**Score PSI** (year-on-year): decile bins are computed once from the
+**full dataset** (all periods combined) to establish a fixed
+reference grouping. Each period's score distribution is then counted
+into those fixed bins, and the PSI is computed between consecutive
+periods. This ensures the bins are stable and the PSI purely
+measures population movement, not bin definition changes.
+
+**Factor PSI**: for each factor, compare the distribution of
+observations across the factor's **refined bin edges** (from Step 4)
+between periods. This uses the actual scorecard binning, not
+deciles, so the PSI directly measures whether the population is
+shifting across the risk groups defined by the model. Two views are
+provided: year-on-year (vs previous period) and vs latest (each
+historic period compared to the most recent snapshot).
+
+Formula (same for both score and factor PSI):
 
 ```
 PSI = sum_i((P_i - Q_i) * ln(P_i / Q_i))
@@ -335,8 +378,7 @@ where `P_i` is the proportion in bin `i` for the comparison period and
 `Q_i` is the proportion in bin `i` for the base period. A floor of
 0.0001 is applied to prevent log(0).
 
-This is the **decile-based PSI** method, which is the most common in
-industry practice. Alternative PSI formulations include:
+Alternative PSI formulations include:
 
 - **Equal-width bins** - using fixed score ranges instead of
   percentiles, more interpretable but sensitive to score scale
@@ -406,9 +448,10 @@ scorecard-builder/
 │   └── tests/                    # pytest suite (47 tests)
 ├── frontend/
 │   └── src/
-│       ├── App.tsx               # 6-step wizard controller
+│       ├── App.tsx               # 7-step wizard controller
 │       ├── components/           # UploadPanel, UnivariateTable, ClusterShortlist,
-│       │                         # BinEditor, ScorecardPanel, ExportPanel, etc.
+│       │                         # BinEditor, ScorecardPanel, ModelAssessmentPanel,
+│       │                         # ExportPanel, etc.
 │       ├── api/client.ts         # API client functions
 │       └── types/analysis.ts     # TypeScript interfaces
 ├── infra/                        # Terraform (S3, CloudFront, Lambda, API Gateway)
@@ -459,9 +502,10 @@ at `http://localhost:8000`.
 | `POST` | `/api/cluster` | Factor clustering via Spearman correlation |
 | `POST` | `/api/refine-bins` | Adjust bin edges for a single factor |
 | `POST` | `/api/fit-scorecard` | Fit logistic regression + PDO scaling |
+| `POST` | `/api/stability` | Stability, cyclicality, GINI over time, factor PSI |
 | `POST` | `/api/export` | Export binning definitions as CSV/JSON |
 | `POST` | `/api/export-scored-data` | Export scored dataset (score + default flag) |
-| `GET` | `/api/sample-csv` | Download sample dataset (20k rows, 105 factors) |
+| `GET` | `/api/sample-csv` | Download sample dataset (20k rows, 106 factors) |
 | `GET` | `/api/sample-metadata` | Download sample factor descriptions |
 
 The backend stores uploaded data in memory (keyed by UUID, 1-hour TTL)
@@ -473,11 +517,16 @@ starts the cache is empty and the user re-uploads.
 ## Sample Data
 
 The included sample dataset (`backend/app/sample_data/`) contains 20,000
-synthetic observations with 105 candidate factors across several
-categories:
+synthetic observations with 106 columns (105 candidate factors + date)
+across 11 annual June snapshots (2005-2015), with year-dependent
+factor distributions that simulate a realistic economic cycle
+(GFC stress peaking in 2008, long-run average default rate ~3.5%):
 
-- **Core financial factors**: income, debt-to-income, loan amount,
-  interest rate, loan-to-value, credit utilisation, etc.
+- **Core financial factors**: income (growing ~3% pa with inflation),
+  debt-to-income (looser pre-crisis, tighter post), loan amount
+  (inflating ~4% pa), interest rate (higher pre-GFC, cut post-GFC),
+  loan-to-value (higher pre-crisis lending), credit utilisation
+  (spiking during stress), delinquency count (elevated during GFC)
 - **Bureau/external data**: bureau scores, worst status, months since
   default, payment history scores - many with -999 or 9999 special
   values representing "not on file" or "not applicable"

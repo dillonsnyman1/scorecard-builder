@@ -13,9 +13,10 @@ evicted after expiry.
 | `POST` | `/api/cluster` | Spearman correlation matrix + hierarchical clustering |
 | `POST` | `/api/refine-bins` | Adjust bin edges, enforce monotonicity, return updated WoE/IV |
 | `POST` | `/api/fit-scorecard` | Logistic regression + PDO scaling + scorecard points |
+| `POST` | `/api/stability` | Stability, cyclicality, GINI over time, factor PSI |
 | `POST` | `/api/export` | Export binning definitions as CSV/JSON |
 | `POST` | `/api/export-scored-data` | Export score + default indicator per observation |
-| `GET`  | `/api/sample-csv` | Download sample dataset (20k rows, 105 factors) |
+| `GET`  | `/api/sample-csv` | Download sample dataset (20k rows, 106 factors) |
 | `GET`  | `/api/sample-metadata` | Download factor descriptions CSV |
 | `GET`  | `/api/health` | Health check |
 
@@ -59,6 +60,15 @@ binned, ensuring they don't distort the WoE pattern.
   all-factors selection with forced-include support
 - **`fit_scorecard`** - top-level orchestrator combining all of the
   above, including VIF computation and multicollinearity checks
+
+### `stability_engine.py`
+
+- **`compute_psi`** - Population Stability Index (decile-based)
+- **`compute_all_cyclicality`** - log-log regression, two-point
+  Delta PD / Delta ODR, CV of model PD
+- **`run_stability_analysis`** - orchestrates per-period metrics
+  (GINI, GINI SE, PSI, ODR, model PD), factor IV stability,
+  factor PSI (YoY and vs latest), and cyclicality measures
 
 ## Data flow
 
