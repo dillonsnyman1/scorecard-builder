@@ -62,6 +62,10 @@ app.add_middleware(
 def _get_dataframe(data_id: str) -> pd.DataFrame:
     _evict_expired()
     entry = _data_store.get(data_id)
+    if entry is None and data_id == "sample" and SAMPLE_DATA_PATH.exists():
+        df = pd.read_csv(SAMPLE_DATA_PATH)
+        _data_store["sample"] = (df, time.time())
+        return df
     if entry is None:
         raise HTTPException(status_code=404, detail="Dataset not found. Please re-upload your CSV.")
     return entry[0]
@@ -406,9 +410,10 @@ def load_sample_data() -> SampleDataResponse:
     if not SAMPLE_DATA_PATH.exists():
         raise HTTPException(status_code=404, detail="Sample data not available.")
 
-    df = pd.read_csv(SAMPLE_DATA_PATH)
-    data_id = str(uuid.uuid4())
-    _data_store[data_id] = (df, time.time())
+    data_id = "sample"
+    if "sample" not in _data_store:
+        _data_store["sample"] = (pd.read_csv(SAMPLE_DATA_PATH), time.time())
+    df = _data_store["sample"][0]
 
     columns, detected = profile_dataframe(df)
     upload = UploadResponse(
