@@ -195,6 +195,9 @@ data "aws_iam_policy_document" "github_actions_deploy" {
       "lambda:TagResource",
       "lambda:ListTags",
       "lambda:ListVersionsByFunction",
+      "lambda:PutFunctionConcurrency",
+      "lambda:GetFunctionConcurrency",
+      "lambda:DeleteFunctionConcurrency",
     ]
     resources = ["arn:aws:lambda:${var.aws_region}:${data.aws_caller_identity.current.account_id}:function:${var.project_name}-*"]
   }
