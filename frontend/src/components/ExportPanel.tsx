@@ -38,6 +38,7 @@ interface Props {
   scorecardData?: ScorecardResponse | null;
   stabilityData?: StabilityResponse | null;
   onExportScoredData?: () => void;
+  onSendToCalibration?: () => void;
   config?: {
     binningMethod: string;
     maxBins: number;
@@ -174,6 +175,7 @@ export function ExportPanel({
   scorecardData,
   stabilityData,
   onExportScoredData,
+  onSendToCalibration,
   config,
 }: Props) {
   const [loading, setLoading] = useState(false);
@@ -759,13 +761,18 @@ export function ExportPanel({
             calibrated Probabilities of Default. Several calibration methodologies can be applied to achieve this.
           </p>
           <p>
-            One such approach is the Monotone Adjacent Pooling Algorithm (MAPA). Export the
-            scored data above and try it in the{" "}
+            One such approach is the Monotone Adjacent Pooling Algorithm (MAPA). Send the
+            scored data directly to the{" "}
             <a href="https://dcg14fdv56g8g.cloudfront.net" target="_blank" rel="noopener noreferrer">
               MAPA PD Calibration Tool
             </a>
-            {" "}to see how scores translate to calibrated PDs.
+            {" "}to see how scores translate to calibrated PDs, or export the CSV and upload it manually.
           </p>
+          {onSendToCalibration && (
+            <button className="primary-button" style={{ marginTop: 8 }} onClick={onSendToCalibration}>
+              Send to MAPA Calibration Tool
+            </button>
+          )}
         </div>
       )}
     </div>

@@ -649,6 +649,33 @@ function App() {
               setError(err instanceof Error ? err.message : "Export failed.");
             }
           } : undefined}
+          onSendToCalibration={lastScorecardRequest ? async () => {
+            try {
+              const blob = await exportScoredData(lastScorecardRequest);
+              const text = await blob.text();
+              const lines = text.trim().split("\n");
+              const obs: [number, number, number][] = [];
+              for (let i = 1; i < lines.length; i++) {
+                const parts = lines[i].split(",");
+                const score = parseFloat(parts[0]);
+                const bad = parseInt(parts[1], 10);
+                if (!isNaN(score) && (bad === 0 || bad === 1)) obs.push([score, bad, 1]);
+              }
+              const calibUrl = (import.meta.env.VITE_CALIBRATION_URL as string | undefined) ?? "https://dcg14fdv56g8g.cloudfront.net";
+              const win = window.open(`${calibUrl}?import`, "_blank");
+              if (!win) { setError("Popup blocked. Please allow popups for this site."); return; }
+              const handler = (e: MessageEvent) => {
+                if (e.data?.type === "calibration-ready") {
+                  win.postMessage({ type: "scorecard-observations", observations: obs }, "*");
+                  window.removeEventListener("message", handler);
+                }
+              };
+              window.addEventListener("message", handler);
+              setTimeout(() => window.removeEventListener("message", handler), 30000);
+            } catch (err) {
+              setError(err instanceof Error ? err.message : "Failed to send data.");
+            }
+          } : undefined}
         />
       )}
     </>
