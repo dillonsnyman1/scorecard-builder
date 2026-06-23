@@ -200,18 +200,15 @@ def compute_woe_iv(
 
 def compute_gini(values: np.ndarray, target: np.ndarray) -> float:
     mask = ~(np.isnan(values) | np.isnan(target))
-    vals = values[mask].reshape(-1, 1)
+    vals = values[mask]
     tgt = target[mask]
 
     if len(np.unique(tgt)) < 2 or len(np.unique(vals)) < 2:
         return 0.0
 
     try:
-        lr = LogisticRegression(solver="lbfgs", max_iter=1000, random_state=42)
-        lr.fit(vals, tgt)
-        proba = lr.predict_proba(vals)[:, 1]
-        auc = roc_auc_score(tgt, proba)
-        return round(2 * auc - 1, 6)
+        auc = roc_auc_score(tgt, vals)
+        return round(abs(2 * auc - 1), 6)
     except Exception:
         return 0.0
 
