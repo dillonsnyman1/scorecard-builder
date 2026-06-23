@@ -22,7 +22,10 @@ default AWS URLs (no custom domain/Route 53/ACM):
   container image (pandas/scikit-learn/statsmodels need a real Linux
   build, so a zip deployment package isn't practical), built for
   arm64/Graviton and pushed to ECR. API Gateway's HTTP API exposes it
-  with a Lambda proxy integration. Memory is set to 512MB.
+  with a Lambda proxy integration. Memory is set to 512MB. CORS is
+  handled at two layers: API Gateway's `cors_configuration` (ensures
+  CORS headers on error responses) and FastAPI's `CORSMiddleware`
+  (handles CORS on successful responses).
 
 ## Layout
 

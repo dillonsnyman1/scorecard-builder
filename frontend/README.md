@@ -27,21 +27,24 @@ The app is a 7-step wizard controlled by `App.tsx`:
   factors have monotonic trends and sufficient bins.
 - **Scorecard** - factor selection method toggle (All/Forward/Backward/
   Stepwise/LASSO), forced-include factor table, PDO scaling config,
-  round points toggle, coefficient table with p-values/significance/
-  VIF, selection log, scorecard points table with expandable per-factor
-  detail, scorecard master table.
+  round points toggle, EFW method selector (Points Range/Coefficient/
+  Score Variance) with min threshold and iterative auto-removal,
+  coefficient table with p-values/significance/VIF/EFW%, selection log,
+  scorecard points table with expandable per-factor detail, scorecard
+  master table.
 - **Assessment** - auto-runs stability analysis on entry. Model
   metrics summary, GINI over time with SE bands, score distribution,
-  effective weights (three perspectives), stability analysis (score
-  PSI YoY, factor IV by period, factor PSI YoY, factor PSI vs latest),
-  cyclicality analysis (ODR vs PD dual-line chart, three cyclicality
-  measures with user-selectable stress/benign periods).
-- **Report** - summary cards, scorecard summary, master table, factor
-  selection log, configuration summary, stability/cyclicality summary,
-  factor audit report with full decision trail, shortlist binning
-  summary with expandable WoE charts, exports (binning CSV/JSON,
-  scorecard CSV, scored data CSV, audit report CSV), next steps with
-  link to PD calibration.
+  effective weights (method selected in scorecard build), stability
+  analysis (score PSI YoY, factor IV by period, factor PSI YoY,
+  factor PSI vs latest - all with heatmap colouring), cyclicality
+  analysis (ODR vs PD dual-line chart, three cyclicality measures
+  with user-selectable stress/benign periods).
+- **Report** - standalone document with summary cards, configuration
+  summary, scorecard summary with EFW%, master table, factor selection
+  log, GINI over time chart, stability/cyclicality summary with
+  heatmap colouring, factor audit report with In Model and Model
+  Rejection columns. Exports: full Excel report (multi-sheet with
+  embedded charts) and scored data CSV.
 
 ## Components
 
@@ -56,7 +59,13 @@ The app is a 7-step wizard controlled by `App.tsx`:
 | `WoeChart` | Recharts composed bar + line chart for WoE and event rate |
 | `ScorecardPanel` | Factor selection, model fitting, PDO config, points table |
 | `ModelAssessmentPanel` | GINI over time, stability (PSI), cyclicality, effective weights |
-| `ExportPanel` | Audit report, master table, exports, next steps |
+| `ExportPanel` | Report page: standalone document, Excel export, scored data export |
+
+### Utilities
+
+| File | Purpose |
+|------|---------|
+| `utils/exportReport.ts` | Excel report generation with ExcelJS, chart capture via SVG-to-canvas |
 
 ## Running locally
 

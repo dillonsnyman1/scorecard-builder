@@ -161,6 +161,8 @@ Odds) scaling.
 | Base odds | 50 | Good-to-bad odds at the base score |
 | PDO | 20 | Points to double the odds |
 | Round points | Off | Round scorecard points to integers |
+| EFW method | Points Range | Method for computing effective factor weights |
+| EFW threshold | 5% | Minimum effective weight; factors below are removed iteratively |
 
 **PDO scaling** converts log-odds to score points:
 
@@ -170,11 +172,26 @@ scaling_offset = base_score - scaling_factor * ln(base_odds)
 points_ij = -(coefficient_i * WoE_ij + intercept/n) * scaling_factor + scaling_offset/n
 ```
 
+**Effective Factor Weights (EFW)**:
+
+After fitting, the tool computes each factor's effective contribution to
+the scorecard. Three methods are available:
+
+| Method | Calculation |
+|---|---|
+| Points Range | `max(points) - min(points)` for each factor |
+| Coefficient | `abs(coefficient)` |
+| Score Variance | `abs(coefficient) * std(WoE)` |
+
+A minimum EFW threshold (default 5%) can be set - factors below the
+threshold are iteratively removed and the model is re-fitted until all
+remaining factors meet the minimum weight.
+
 The output includes:
 
 - **Model metrics**: AUC, GINI, KS statistic
 - **Coefficient table**: factor, coefficient, p-value, significance
-  level, VIF (Variance Inflation Factor)
+  level, VIF (Variance Inflation Factor), EFW %
 - **Factor selection log**: step-by-step record of which factors were
   added/removed and why
 - **Scorecard points table**: per-factor, per-bin point assignments
@@ -217,20 +234,30 @@ step.
 
 ### Step 7: Report
 
-Comprehensive output and audit trail:
+Comprehensive standalone output document and audit trail:
 
-- **Factor Selection Log**: stepwise add/remove decisions with p-values
+- **Summary cards**: AUC/GINI, KS, factor count, score range, PDO config
 - **Configuration Summary**: all settings used (binning, thresholds,
-  clustering, PDO) for reproducibility
-- **Stability & Cyclicality Summary**: read-only summary of results
-  from the Model Assessment step
+  clustering, PDO, EFW) for reproducibility
+- **Scorecard Summary**: coefficients with EFW %, scorecard master table
+- **Factor Selection Log**: stepwise add/remove decisions with p-values
+- **GINI over Time**: line chart with SE bands (duplicated from
+  Assessment for standalone viewing)
+- **Stability & Cyclicality Summary**: score PSI, factor IV, factor PSI,
+  cyclicality measures with heatmap colouring (duplicated from Assessment)
 - **Factor Audit Report**: every input factor listed with its status
   (Shortlisted/Rejected), the stage at which the decision was made,
-  and the reason - including user overrides with justifications
-- **Scorecard Summary**: model metrics, coefficients, point ranges
-- **Scorecard Master Table**: implementation-ready scorecard
-- **Exports**: Binning CSV, Binning JSON, Scorecard Points CSV, Scored
-  Data CSV (score + default indicator per observation), Audit Report CSV
+  the reason, whether it is in the final model (Yes/No), and the model
+  rejection reason if applicable
+- **Exports**:
+  - **Export Full Report (Excel)** - multi-sheet workbook with
+    Configuration, Coefficients, Scorecard Points, Selection Log,
+    Factor Audit, GINI over Time, Score PSI, Factor IV, Factor PSI,
+    Cyclicality, and Score Distribution sheets, with embedded charts,
+    formatted headers, alternating row bands, number formatting, frozen
+    panes, and auto-filters
+  - **Export Scored Data** - CSV with score + default indicator per
+    observation
 
 The scored data export (`score`, `bad` columns) is formatted for direct
 import into PD calibration tools such as the
@@ -240,9 +267,10 @@ import into PD calibration tools such as the
 
 ## Stability & Cyclicality Analysis
 
-The Report step includes an optional analysis that assesses scorecard
-stability and cyclicality across time periods. This requires a date
-column in the dataset. These are two related but distinct concepts:
+The Model Assessment step (Step 6) runs an automated analysis that
+assesses scorecard stability and cyclicality across time periods. This
+requires a date column in the dataset. These are two related but
+distinct concepts:
 
 **Cyclicality** refers to how default rates vary with economic
 conditions. The same borrower profile may default at different rates
@@ -400,14 +428,9 @@ configuration. A factor whose IV varies significantly across periods
 may be capturing cyclical rather than structural risk, which can cause
 the scorecard to be unstable through the cycle.
 
-**Alternative approaches** that could be used for cyclicality and
-stability assessment include:
+**Alternative approaches** that could extend the existing cyclicality
+and stability assessment:
 
-- **Characteristic Stability Index (CSI)** - PSI applied to individual
-  factor distributions rather than scores, to pinpoint which factors
-  are driving population shifts
-- **GINI/AUC by vintage** - tracking discriminatory power over time,
-  useful for detecting model degradation
 - **Herfindahl index** - measuring concentration of observations across
   score bands over time
 
@@ -443,7 +466,8 @@ scorecard-builder/
 │   │   ├── models.py             # Pydantic request/response schemas
 │   │   ├── shortlist_engine.py   # WoE/IV/GINI, binning, monotonicity
 │   │   ├── cluster_engine.py     # Spearman correlation, hierarchical clustering
-│   │   ├── scorecard_engine.py   # Logistic regression, PDO scaling, points
+│   │   ├── scorecard_engine.py   # Logistic regression, PDO scaling, EFW, points
+│   │   ├── stability_engine.py   # PSI, cyclicality, GINI over time
 │   │   └── sample_data/          # Synthetic 20k-row dataset + metadata
 │   └── tests/                    # pytest suite (47 tests)
 ├── frontend/
@@ -451,7 +475,8 @@ scorecard-builder/
 │       ├── App.tsx               # 7-step wizard controller
 │       ├── components/           # UploadPanel, UnivariateTable, ClusterShortlist,
 │       │                         # BinEditor, ScorecardPanel, ModelAssessmentPanel,
-│       │                         # ExportPanel, etc.
+│       │                         # ExportPanel
+│       ├── utils/exportReport.ts # Excel report generation (ExcelJS)
 │       ├── api/client.ts         # API client functions
 │       └── types/analysis.ts     # TypeScript interfaces
 ├── infra/                        # Terraform (S3, CloudFront, Lambda, API Gateway)

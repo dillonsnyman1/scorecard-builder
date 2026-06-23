@@ -10,15 +10,11 @@ ordered by priority.
 - **Out-of-time (OOT) validation** - upload a holdout/validation dataset
   and compute AUC, GINI, KS, and score distribution on unseen data to
   assess model stability and overfitting.
-- **Population Stability Index (PSI)** - compare score distributions
-  between development and validation samples to detect population drift.
 - **Hosmer-Lemeshow test** - goodness-of-fit test for the logistic
   regression, checking whether predicted probabilities align with
   observed event rates across deciles.
 - **Confusion matrix and classification metrics** - at user-defined
   score cutoffs, show precision, recall, F1, and a ROC curve.
-- **Characteristic stability** - track WoE/IV stability per factor
-  across time periods (requires timestamped data).
 
 ## Scorecard Enhancements
 

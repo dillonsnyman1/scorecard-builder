@@ -59,7 +59,8 @@ binned, ensuring they don't distort the WoE pattern.
 - **`factor_selection`** - stepwise (forward/backward/both), LASSO, or
   all-factors selection with forced-include support
 - **`fit_scorecard`** - top-level orchestrator combining all of the
-  above, including VIF computation and multicollinearity checks
+  above, including VIF computation, multicollinearity checks, and
+  iterative EFW (Effective Factor Weight) removal
 
 ### `stability_engine.py`
 
