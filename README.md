@@ -11,10 +11,13 @@ through to a final points-based scorecard with full audit trail.
 - **Frontend**: React + Vite + TypeScript interactive wizard with Recharts
   visualisations
 
-> **Disclaimer**: This is a simplified, illustrative implementation built
-> for portfolio purposes. It is **not** a production-grade scorecard
-> development platform and should not be used for regulatory model
-> submissions. All sample data is synthetic.
+> **Disclaimer**: This is a personal portfolio project implementing
+> standard credit scoring methodology from published textbooks and
+> regulatory guidance (see [References](#references)). It is **not** a
+> production-grade scorecard development platform and should not be
+> used for regulatory model submissions. All sample data is synthetic.
+> This project does not reflect the work, data, or intellectual
+> property of any employer or client.
 
 ---
 
@@ -72,11 +75,12 @@ values don't distort the binning of valid observations.
 **Per-bin and per-factor metrics**:
 
 - **Weight of Evidence (WoE)** per bin: `ln(% non-events / % events)`,
-  with a 0.0001 floor to prevent log(0)
+  with a 0.0001 floor to prevent log(0) [1][2]
 - **Information Value (IV)**: `sum((% non-events - % events) * WoE)`
-  across all bins - measures the overall predictive power of the factor
+  across all bins - measures the overall predictive power of the
+  factor [1][2]
 - **GINI coefficient**: `2 * AUC - 1` from a univariate logistic
-  regression - measures the factor's ability to rank-order risk
+  regression - measures the factor's ability to rank-order risk [3]
 
 Factors are ranked by GINI and can be filtered by configurable
 thresholds:
@@ -97,9 +101,9 @@ industry-standard reason lists - all logged for audit.
 ### Step 3: Factor Clustering
 
 Selected factors are clustered using Spearman rank correlation and
-hierarchical agglomerative clustering. A correlation heatmap visualises
-the relationships. Within each cluster, the factor with the highest GINI
-is auto-selected as the representative.
+hierarchical agglomerative clustering [4]. A correlation heatmap
+visualises the relationships. Within each cluster, the factor with the
+highest GINI is auto-selected as the representative.
 
 Users can override the default selection (e.g. prefer a different factor
 for operational or interpretability reasons), with mandatory
@@ -133,9 +137,9 @@ Progression to the next step is blocked until all factors have at least
 
 ### Step 5: Scorecard
 
-Fits a logistic regression on the WoE-transformed factors and converts
-the output to a points-based scorecard using PDO (Points to Double the
-Odds) scaling.
+Fits a logistic regression on the WoE-transformed factors [1][2] and
+converts the output to a points-based scorecard using PDO (Points to
+Double the Odds) scaling [1].
 
 **Factor selection methods**:
 
@@ -164,7 +168,7 @@ Odds) scaling.
 | EFW method | Points Range | Method for computing effective factor weights |
 | EFW threshold | 5% | Minimum effective weight; factors below are removed iteratively |
 
-**PDO scaling** converts log-odds to score points:
+**PDO scaling** [1] converts log-odds to score points:
 
 ```
 scaling_factor = PDO / ln(2)
@@ -213,7 +217,7 @@ step.
 - **Model metrics summary**: AUC, GINI, KS statistic, score range,
   factor count
 - **GINI over time**: GINI and GINI standard error (Hanley-McNeil
-  approximation) per snapshot period, with line chart and SE bands
+  approximation [5]) per snapshot period, with line chart and SE bands
 - **Score distribution**: histogram of scores across the dataset
 - **Effective weights**: factor contribution analysis with three
   perspectives (points range, coefficient magnitude, score variance)
@@ -288,8 +292,8 @@ in marketing strategy or distribution channel can shift the population.
 **What the tool measures:**
 
 **Cyclicality** - the sensitivity of the model's PD predictions to
-changes in the Observed Default Rate (ODR) across time periods. A
-scorecard that assigns the same PD regardless of the economic
+changes in the Observed Default Rate (ODR) across time periods [6][7].
+A scorecard that assigns the same PD regardless of the economic
 environment is Through-the-Cycle (TTC); one whose PDs move in
 lockstep with realised defaults is Point-in-Time (PIT). Three
 measures are implemented:
@@ -329,8 +333,8 @@ measures are implemented:
 commonly discussed in the context of cyclicality but measure
 different things - either the severity of the default cycle in the
 data, or calibration mechanics for converting between PIT and TTC
-PDs. Under regulatory guidance, the rating system's ranking
-ability (which is what the scorecard produces) is explicitly
+PDs. Under regulatory guidance [6][7][8], the rating system's
+ranking ability (which is what the scorecard produces) is explicitly
 separated from the calibration of PDs to long-run averages. These
 methods belong in the calibration stage, not the scorecard
 development stage:
@@ -342,18 +346,18 @@ development stage:
   scorecards applied to the same data would produce the same
   peak-to-trough ODR ratio, so it cannot distinguish a cyclical
   model from a stable one.
-- **Cycle index (Anderson)** (`long_run_average_PD / current_PD`):
+- **Cycle index (Anderson [3])** (`long_run_average_PD / current_PD`):
   this is a scalar used to convert a point-in-time PD estimate to
   a through-the-cycle PD by scaling it to the long-run average. It
   answers "where are we in the cycle right now?" rather than "does
   the model move with the cycle?". It is applied after calibration,
   not during scorecard development.
-- **Vasicek single-factor model** (ASRF framework,
+- **Vasicek single-factor model** [9] (ASRF framework,
   `ODR_t = Phi((Phi_inv(PD_TTC) - sqrt(rho) * Z_t) / sqrt(1 - rho))`):
   this decomposes observed defaults into a systematic factor `Z_t`
   (the economy) and an idiosyncratic component, with `rho` measuring
   how exposed the portfolio is to the systematic factor. This is the
-  theoretical foundation of the Basel IRB capital formula - it
+  theoretical foundation of the Basel IRB capital formula [8] - it
   determines how much capital to hold, not whether the scorecard's
   risk ranking is stable. A high `rho` means the portfolio is
   concentrated in cycle-sensitive segments, which is a portfolio
@@ -365,7 +369,7 @@ development stage:
   economy affect this portfolio?" rather than "does this model's PD
   assignment change with the economy?".
 
-**Population stability (PSI)** - the Population Stability Index
+**Population stability (PSI)** [1][2] - the Population Stability Index
 quantifies how much the score distribution in each period has
 shifted relative to a base period. This is distinct from cyclicality
 - PSI measures whether the applicant population has changed, not
@@ -438,7 +442,7 @@ and stability assessment:
 
 ## WoE Convention
 
-This tool uses the convention:
+This tool uses the convention from Siddiqi [1]:
 
 ```
 WoE = ln(% non-events / % events)
@@ -453,6 +457,58 @@ risk. This means:
   points = lower risk (conventional scorecard interpretation)
 - Positive coefficients are flagged as anomalous (typically caused by
   multicollinearity)
+
+---
+
+## References
+
+[1] Siddiqi, N. (2017). *Intelligent Credit Scoring: Building and
+Implementing Better Credit Risk Scorecards*, 2nd ed. Wiley.
+Covers WoE/IV methodology, PDO scaling, scorecard points derivation,
+and PSI.
+
+[2] Siddiqi, N. (2006). *Credit Risk Scorecards: Developing and
+Implementing Intelligent Credit Scoring*. Wiley. Earlier edition
+covering the same foundational scorecard development framework.
+
+[3] Anderson, R. (2007). *The Credit Scoring Toolkit: Theory and
+Practice for Retail Credit Risk Management and Decision Automation*.
+Oxford University Press. Source for GINI/AUC interpretation, cycle
+index, and factor selection methodology.
+
+[4] Murtagh, F. & Contreras, P. (2012). Algorithms for hierarchical
+clustering: an overview. *WIREs Data Mining and Knowledge Discovery*,
+2(1), 86-97. Overview of agglomerative clustering methods used for
+factor grouping.
+
+[5] Hanley, J.A. & McNeil, B.J. (1982). The meaning and use of the
+area under a receiver operating characteristic (ROC) curve.
+*Radiology*, 143(1), 29-36. Foundation for AUC variance estimation
+and the GINI SE approximation used in the stability analysis.
+
+[6] European Banking Authority (2017). *Guidelines on PD estimation,
+LGD estimation and the treatment of defaulted exposures*
+(EBA/GL/2017/16). Sections on rating philosophy (TTC vs PIT),
+cyclicality assessment, and the separation of ranking from
+calibration.
+
+[7] Prudential Regulation Authority (2013). *Internal Ratings Based
+(IRB) approaches* (SS11/13). UK supervisory statement on IRB model
+requirements including cyclicality considerations for rating systems.
+
+[8] Basel Committee on Banking Supervision (2005). *An Explanatory
+Note on the Basel II IRB Risk Weight Functions* (BCBS 128). Derives
+the IRB capital formula from the Vasicek/ASRF single-factor model
+and explains the role of asset correlation (rho).
+
+[9] Vasicek, O.A. (2002). The distribution of loan portfolio value.
+*Risk*, 15(12), 160-162. The single-factor model decomposing
+portfolio losses into systematic and idiosyncratic components.
+
+[10] Thomas, L.C. (2009). *Consumer Credit Models: Pricing, Profit
+and Portfolios*. Oxford University Press. Broader treatment of credit
+scoring methodology including logistic regression, reject inference,
+and model validation.
 
 ---
 
