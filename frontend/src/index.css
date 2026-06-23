@@ -34,6 +34,12 @@ body {
   padding: 32px 24px 48px;
 }
 
+@media (max-width: 640px) {
+  #root {
+    padding: 16px 12px 32px;
+  }
+}
+
 h1, h2, h3 {
   color: var(--text-h);
   font-weight: 600;

@@ -1474,3 +1474,298 @@ tr.audit-override {
 .next-steps-card a:hover {
   text-decoration: underline;
 }
+
+/* ------------------------------------------------------------------ */
+/* Responsive / Mobile                                                 */
+/* ------------------------------------------------------------------ */
+
+@media (max-width: 768px) {
+  .app-header h1 {
+    font-size: 22px;
+  }
+
+  .app-header p {
+    font-size: 13px;
+  }
+
+  /* Step nav: horizontal scroll with compact labels */
+  .step-nav {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    padding: 8px 10px;
+    gap: 2px;
+    scrollbar-width: none;
+  }
+
+  .step-nav::-webkit-scrollbar {
+    display: none;
+  }
+
+  .step-indicator {
+    padding: 6px 8px;
+    font-size: 11px;
+    white-space: nowrap;
+    flex: 0 0 auto;
+  }
+
+  .step-number {
+    width: 20px;
+    height: 20px;
+    font-size: 10px;
+  }
+
+  /* Toolbar: stack vertically */
+  .toolbar {
+    flex-direction: column;
+    align-items: stretch;
+    padding: 12px 14px;
+    gap: 10px;
+  }
+
+  /* Threshold fields: wrap and fill width */
+  .threshold-toolbar {
+    flex-wrap: wrap;
+  }
+
+  .threshold-fields {
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+
+  .threshold-divider {
+    display: none;
+  }
+
+  .selection-actions {
+    margin-left: 0;
+    width: 100%;
+    justify-content: space-between;
+  }
+
+  /* Summary cards: single column on small screens */
+  .summary-cards {
+    grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+    gap: 10px;
+  }
+
+  .summary-card {
+    padding: 12px 14px;
+  }
+
+  .summary-label {
+    font-size: 10px;
+    margin-bottom: 6px;
+  }
+
+  .summary-value {
+    font-size: 20px;
+  }
+
+  /* Buttons */
+  .primary-button {
+    padding: 10px 16px;
+    font-size: 13px;
+    width: 100%;
+    justify-content: center;
+  }
+
+  .upload-actions {
+    flex-wrap: wrap;
+  }
+
+  /* Config fields */
+  .config-field {
+    flex-wrap: wrap;
+    gap: 4px;
+  }
+
+  .config-field select,
+  .config-field input[type="text"] {
+    width: 100%;
+    max-width: none;
+  }
+
+  /* Scorecard config: stack rows */
+  .scorecard-config-panel .toolbar {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .config-row-label {
+    margin-bottom: 4px;
+  }
+
+  .method-toggle {
+    flex-wrap: wrap;
+  }
+
+  .method-btn {
+    padding: 6px 10px;
+    font-size: 12px;
+    flex: 1;
+    text-align: center;
+  }
+
+  .forced-factors-grid {
+    grid-template-columns: 1fr;
+  }
+
+  /* Tables */
+  .data-table {
+    font-size: 12px;
+  }
+
+  .data-table th,
+  .data-table td {
+    padding: 6px 8px;
+  }
+
+  .data-table.compact th,
+  .data-table.compact td {
+    padding: 4px 6px;
+  }
+
+  /* Bin editor */
+  .bin-editor-summary {
+    flex-wrap: wrap;
+    gap: 6px;
+  }
+
+  .bin-editor-summary-name {
+    min-width: auto;
+    width: 100%;
+  }
+
+  .bin-edge-controls {
+    flex-wrap: wrap;
+  }
+
+  .bin-edge-count {
+    margin-left: 0;
+    width: 100%;
+  }
+
+  .monotonicity-controls {
+    flex-wrap: wrap;
+    gap: 6px;
+  }
+
+  .split-input {
+    flex-wrap: wrap;
+    gap: 6px;
+  }
+
+  .split-input input {
+    width: 100%;
+  }
+
+  /* Override inputs */
+  .override-input {
+    flex-wrap: wrap;
+    gap: 6px;
+  }
+
+  .override-input select,
+  .override-input input {
+    width: 100%;
+  }
+
+  /* Cluster override */
+  .cluster-override-input {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 6px;
+  }
+
+  .cluster-override-input select,
+  .cluster-override-input input {
+    width: 100%;
+  }
+
+  /* Heatmap */
+  .heatmap-container {
+    padding: 10px;
+  }
+
+  /* Chart cards */
+  .chart-card {
+    padding: 12px;
+  }
+
+  /* Config summary grid */
+  .config-summary-grid {
+    grid-template-columns: 1fr;
+    gap: 14px;
+  }
+
+  /* Export actions */
+  .export-actions {
+    flex-direction: column;
+  }
+
+  .export-actions .primary-button {
+    width: 100%;
+  }
+
+  /* Collapsible sections */
+  .collapsible-section summary {
+    padding: 12px 14px;
+    font-size: 13px;
+  }
+
+  /* Audit table */
+  .audit-description {
+    min-width: 200px;
+  }
+
+  .description-input {
+    min-width: 180px;
+  }
+
+  /* Target selector */
+  .target-selector {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 8px;
+  }
+
+  .target-selector select {
+    max-width: none;
+  }
+
+  /* Next steps */
+  .next-steps-card {
+    padding: 14px;
+  }
+
+  .next-steps-card p {
+    font-size: 13px;
+  }
+}
+
+@media (max-width: 480px) {
+  .step-indicator span:not(.step-number) {
+    display: none;
+  }
+
+  .step-indicator {
+    padding: 6px;
+    flex: 0 0 auto;
+  }
+
+  .step-nav {
+    justify-content: center;
+  }
+
+  .summary-cards {
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .threshold-field {
+    width: 100%;
+  }
+
+  .threshold-field input {
+    flex: 1;
+  }
+}
