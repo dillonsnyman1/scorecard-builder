@@ -182,16 +182,12 @@ export function ClusterShortlist({
                                     <label>Replaced by:</label>
                                     <select
                                       value={override.preferredFactor}
-                                      onChange={(e) => {
-                                        const val = e.target.value;
+                                      onChange={(e) =>
                                         onClusterOverrideChange(f.factor_name, {
                                           ...override,
-                                          preferredFactor: val,
-                                        });
-                                        if (val && !selectedFactors.has(val)) {
-                                          onToggleFactor(val);
-                                        }
-                                      }}
+                                          preferredFactor: e.target.value,
+                                        })
+                                      }
                                     >
                                       <option value="">Select factor...</option>
                                       {clusters.map((c) => {

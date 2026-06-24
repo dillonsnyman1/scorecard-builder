@@ -424,6 +424,11 @@ function App() {
 
             const missingReasons: string[] = [];
             const contradictions: string[] = [];
+            const replacementFactors = new Set(
+              Object.values(clusterOverrides)
+                .map((o) => o.preferredFactor)
+                .filter(Boolean),
+            );
 
             for (const cluster of clusterData.clusters) {
               const topFactor = cluster.factors[0]?.factor_name;
@@ -439,7 +444,7 @@ function App() {
                 }
               }
               for (const f of cluster.factors.slice(1)) {
-                if (shortlistedFactors.has(f.factor_name)) {
+                if (shortlistedFactors.has(f.factor_name) && !replacementFactors.has(f.factor_name)) {
                   const ov = clusterOverrides[f.factor_name];
                   if (!ov?.reason) {
                     missingReasons.push(`Cluster ${cluster.cluster_id}: reason needed for including ${f.factor_name}`);
@@ -472,11 +477,19 @@ function App() {
                 <ClusterShortlist
                   clusters={clusterData.clusters}
                   selectedFactors={shortlistedFactors}
-                  onToggleFactor={(name) => setShortlistedFactors(toggleFactor(shortlistedFactors, name))}
+                  onToggleFactor={(name) => setShortlistedFactors((prev) => toggleFactor(prev, name))}
                   clusterOverrides={clusterOverrides}
-                  onClusterOverrideChange={(name, override) =>
-                    setClusterOverrides((prev) => ({ ...prev, [name]: override }))
-                  }
+                  onClusterOverrideChange={(name, override) => {
+                    setClusterOverrides((prev) => ({ ...prev, [name]: override }));
+                    if (override.preferredFactor) {
+                      setShortlistedFactors((prev) => {
+                        if (prev.has(override.preferredFactor)) return prev;
+                        const next = new Set(prev);
+                        next.add(override.preferredFactor);
+                        return next;
+                      });
+                    }
+                  }}
                   contradictions={contradictions.map((c) => `${c}: both factors reference each other as the preferred alternative`)}
                   factorDescriptions={factorDescriptions}
                 />
