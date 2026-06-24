@@ -897,6 +897,13 @@ tbody tr:hover .sticky-col {
   min-width: 120px;
 }
 
+.cluster-replacement-note {
+  padding: 4px 10px;
+  background: #f0f9ff;
+  font-size: 11px;
+  color: #1e6590;
+}
+
 /* Bin editor */
 
 .bin-editor-section summary {

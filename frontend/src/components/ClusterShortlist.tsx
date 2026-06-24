@@ -52,6 +52,17 @@ export function ClusterShortlist({
   contradictions,
   factorDescriptions,
 }: Props) {
+  const replacementSources = new Map<string, { sourceFactor: string; reason: string }>();
+  for (const [factorName, override] of Object.entries(clusterOverrides)) {
+    if (override.preferredFactor) {
+      replacementSources.set(override.preferredFactor, {
+        sourceFactor: factorName,
+        reason: override.reason,
+      });
+    }
+  }
+  const replacementFactors = new Set(replacementSources.keys());
+
   return (
     <div className="cluster-shortlist">
       <h3>Factor Clusters</h3>
@@ -94,7 +105,8 @@ export function ClusterShortlist({
                   {cluster.factors.map((f, i) => {
                     const isTop = i === 0;
                     const isSelected = selectedFactors.has(f.factor_name);
-                    const needsReason = (isTop && !isSelected) || (!isTop && isSelected);
+                    const isReplacement = replacementFactors.has(f.factor_name);
+                    const needsReason = (isTop && !isSelected) || (!isTop && isSelected && !isReplacement);
                     const override = clusterOverrides[f.factor_name] ?? { reason: "", preferredFactor: "" };
                     const baseReason = override.reason.startsWith("Other: ") ? "Other" : override.reason;
                     const requiresAlt = REASONS_REQUIRING_ALTERNATIVE.has(baseReason);
@@ -120,6 +132,18 @@ export function ClusterShortlist({
                           <td className="mono">{f.gini.toFixed(4)}</td>
                           <td className="mono">{f.iv.toFixed(4)}</td>
                         </tr>
+                        {!isTop && isReplacement && isSelected && (() => {
+                          const source = replacementSources.get(f.factor_name);
+                          return source ? (
+                            <tr key={`${f.factor_name}-audit`} className="cluster-override-row">
+                              <td colSpan={5}>
+                                <div className="cluster-replacement-note">
+                                  Replaces <strong>{source.sourceFactor}</strong>: {source.reason}
+                                </div>
+                              </td>
+                            </tr>
+                          ) : null;
+                        })()}
                         {needsReason && (
                           <tr key={`${f.factor_name}-override`} className="cluster-override-row">
                             <td colSpan={5}>
@@ -153,17 +177,21 @@ export function ClusterShortlist({
                                     placeholder="Specify reason..."
                                   />
                                 )}
-                                {requiresAlt && (
+                                {requiresAlt && isTop && (
                                   <>
                                     <label>Replaced by:</label>
                                     <select
                                       value={override.preferredFactor}
-                                      onChange={(e) =>
+                                      onChange={(e) => {
+                                        const val = e.target.value;
                                         onClusterOverrideChange(f.factor_name, {
                                           ...override,
-                                          preferredFactor: e.target.value,
-                                        })
-                                      }
+                                          preferredFactor: val,
+                                        });
+                                        if (val && !selectedFactors.has(val)) {
+                                          onToggleFactor(val);
+                                        }
+                                      }}
                                     >
                                       <option value="">Select factor...</option>
                                       {clusters.map((c) => {
